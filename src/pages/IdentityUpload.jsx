@@ -79,14 +79,14 @@ function IdentityUpload() {
         accept="image/*"
         capture="environment"
         onChange={handleFileSelect}
-        style={styles.fileInput}
+        style={{ position: 'absolute', opacity: 0, width: 0, height: 0, zIndex: -1 }}
       />
       <input
         id="albumInput"
         type="file"
         accept="image/*"
         onChange={handleFileSelect}
-        style={styles.fileInput}
+        style={{ position: 'absolute', opacity: 0, width: 0, height: 0, zIndex: -1 }}
       />
 
       {/* Content */}
@@ -164,7 +164,8 @@ const styles = StyleSheet.create({
   fileInput: {
     position: 'absolute',
     opacity: 0,
-    pointerEvents: 'none',
+    width: 0,
+    height: 0,
   },
   content: {
     flex: 1,

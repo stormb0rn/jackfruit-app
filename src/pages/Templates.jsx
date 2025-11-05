@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import useAppStore from '../stores/appStore';
 import { api } from '../services/api';
+import { configLoader } from '../utils/configLoader';
 
 function Templates() {
   const [templates, setTemplates] = useState([]);
@@ -15,8 +16,16 @@ function Templates() {
 
   const loadTemplates = async () => {
     try {
-      const data = await api.getTemplates();
-      setTemplates(data);
+      // Load style templates from config
+      const styleTemplates = configLoader.getStyleTemplates();
+
+      // Map templates to include local image paths
+      const templatesWithImages = styleTemplates.map(template => ({
+        ...template,
+        thumbnail: require(`../assets/style-templates/${template.image}`)
+      }));
+
+      setTemplates(templatesWithImages);
     } catch (error) {
       console.error('Failed to load templates:', error);
     } finally {
@@ -62,7 +71,7 @@ function Templates() {
           </TouchableOpacity>
           <Text style={styles.title}>Select a Style Template</Text>
           <Text style={styles.subtitle}>
-            Choose from 5 different aesthetic styles to apply to your transformation
+            Choose from {templates.length} different aesthetic styles to apply to your transformation
           </Text>
         </View>
 
@@ -83,9 +92,8 @@ function Templates() {
               style={[styles.templateCard, generating && styles.templateCardDisabled]}
               activeOpacity={0.7}
             >
-              <Image source={{ uri: template.thumbnail }} style={styles.thumbnailImage} resizeMode="cover" />
-              <View style={styles.templateInfo}>
-                <Text style={styles.templateId}>{template.id}</Text>
+              <Image source={template.thumbnail} style={styles.thumbnailImage} resizeMode="cover" />
+              <View style={styles.templateOverlay}>
                 <Text style={styles.templateName}>{template.name}</Text>
               </View>
             </TouchableOpacity>
@@ -109,7 +117,7 @@ function Templates() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   contentContainer: { padding: 20, paddingBottom: 40 },
-  content: { maxWidth: 1000, width: '100%', alignSelf: 'center' },
+  content: { maxWidth: 1200, width: '100%', alignSelf: 'center' },
   header: { alignItems: 'center', marginBottom: 40 },
   backButton: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'white', marginBottom: 20 },
   backButtonText: { fontSize: 14, color: '#333', fontWeight: '600' },
@@ -118,13 +126,29 @@ const styles = StyleSheet.create({
   transformInfo: { padding: 16, backgroundColor: '#e8f5e9', borderRadius: 8, marginBottom: 32, alignItems: 'center' },
   transformText: { fontSize: 14, color: '#2e7d32' },
   transformBold: { fontWeight: 'bold' },
-  templatesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between' },
-  templateCard: { backgroundColor: 'white', borderWidth: 2, borderColor: '#e0e0e0', borderRadius: 12, overflow: 'hidden', minWidth: 150, flex: 1, flexBasis: '30%' },
+  templatesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'flex-start' },
+  templateCard: {
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    overflow: 'hidden',
+    width: 220,
+    height: 280,
+    position: 'relative'
+  },
   templateCardDisabled: { opacity: 0.6 },
-  thumbnailImage: { width: '100%', height: 150, backgroundColor: '#f5f5f5' },
-  templateInfo: { padding: 16, alignItems: 'center' },
-  templateId: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-  templateName: { fontSize: 14, color: '#888' },
+  thumbnailImage: { width: '100%', height: '100%', backgroundColor: '#f5f5f5' },
+  templateOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    padding: 16,
+    alignItems: 'center'
+  },
+  templateName: { fontSize: 16, fontWeight: 'bold', color: 'white', textAlign: 'center' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8f9fa' },
   loadingText: { marginTop: 16, fontSize: 18, color: '#666' },
   generatingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },

@@ -1,0 +1,90 @@
+{
+  "config_name": "Style Templates",
+  "description": "Configuration for different aesthetic style templates",
+  "templates": {
+    "camera_lens": {
+      "id": "camera_lens",
+      "name": "Camera Lens",
+      "image": "Camera Lens.jpg",
+      "prompt": "professional camera lens aesthetic, depth of field effect, bokeh background, sharp focus on subject, cinematic depth, DSLR quality, professional photography style, artistic blur"
+    },
+    "cinematic": {
+      "id": "cinematic",
+      "name": "Cinematic",
+      "image": "Cinematic.jpg",
+      "prompt": "cinematic look, film grain, moody lighting, dramatic atmosphere, movie poster style, Hollywood aesthetic, color graded, professional film quality"
+    },
+    "classy": {
+      "id": "classy",
+      "name": "Classy",
+      "image": "Classy.jpg",
+      "prompt": "classy and elegant aesthetic, sophisticated style, luxury fashion, refined appearance, high-end magazine quality, timeless elegance, polished look"
+    },
+    "creative": {
+      "id": "creative",
+      "name": "Creative",
+      "image": "Creative.jpg",
+      "prompt": "creative artistic style, unique composition, artistic expression, innovative aesthetic, contemporary art influence, bold creative choices, artistic vision"
+    },
+    "daily": {
+      "id": "daily",
+      "name": "Daily",
+      "image": "Daily.jpg",
+      "prompt": "casual daily life aesthetic, natural everyday look, candid style, relatable atmosphere, lifestyle photography, authentic moment, comfortable vibe"
+    },
+    "edgy": {
+      "id": "edgy",
+      "name": "Edgy",
+      "image": "Edgy.jpg",
+      "prompt": "edgy urban style, bold attitude, street fashion aesthetic, modern urban culture, confident look, contemporary edge, alternative style"
+    },
+    "editorial": {
+      "id": "editorial",
+      "name": "Editorial",
+      "image": "Editorial.jpg",
+      "prompt": "editorial fashion style, high fashion magazine quality, professional styling, Vogue aesthetic, runway inspired, model pose, fashion photography"
+    },
+    "funny": {
+      "id": "funny",
+      "name": "Funny",
+      "image": "Funny.jpg",
+      "prompt": "fun and playful aesthetic, lighthearted mood, humorous style, entertaining vibe, cheerful atmosphere, joyful expression, comedic element"
+    },
+    "retro_vintage": {
+      "id": "retro_vintage",
+      "name": "Retro Vintage",
+      "image": "Retro Vintage.jpg",
+      "prompt": "retro vintage aesthetic, nostalgic film look, classic vintage style, old school photography, aged photo quality, vintage color grading, throwback vibe"
+    },
+    "cool": {
+      "id": "cool",
+      "name": "The Cool One",
+      "image": "The Cool One.jpg",
+      "prompt": "cool and confident aesthetic, effortlessly stylish, modern cool vibe, trendsetter look, charismatic presence, contemporary cool style"
+    },
+    "cute": {
+      "id": "cute",
+      "name": "The Cute One",
+      "image": "The Cute One.jpg",
+      "prompt": "cute and adorable aesthetic, sweet charming style, gentle soft look, endearing appeal, kawaii inspired, lovely atmosphere, innocent charm"
+    },
+    "hot": {
+      "id": "hot",
+      "name": "The Hot One",
+      "image": "The Hot One.jpg",
+      "prompt": "hot and attractive aesthetic, glamorous look, alluring style, captivating presence, sultry atmosphere, stunning appearance, striking beauty"
+    },
+    "vintage": {
+      "id": "vintage",
+      "name": "Vintage",
+      "image": "Vintage.png",
+      "prompt": "vintage aesthetic, classic timeless style, antique photo look, sepia toned, old photograph quality, historical vibe, vintage charm"
+    },
+    "y2k": {
+      "id": "y2k",
+      "name": "Y2K",
+      "image": "Y2K.jpg",
+      "prompt": "Y2K aesthetic, early 2000s style, millennium era fashion, nostalgic 2000s vibe, pop culture reference, cyber Y2K look, retro futuristic"
+    }
+  }
+}

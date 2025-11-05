@@ -1,6 +1,7 @@
 // Utility to load and manage transformation configuration
 
 import transformationConfig from '../config/transformation_prompts.json';
+import styleTemplatesConfig from '../config/style_templates.json';
 
 export const configLoader = {
   /**
@@ -60,6 +61,48 @@ export const configLoader = {
     }
 
     return `${looking.prompt_modifier}, ${visualStyle.prompt_modifier}`;
+  },
+
+  /**
+   * Get all style templates
+   * @returns {Array} Array of style template options
+   */
+  getStyleTemplates: () => {
+    return Object.values(styleTemplatesConfig.templates || {});
+  },
+
+  /**
+   * Get a specific style template by ID
+   * @param {string} id - The style template ID
+   * @returns {object|null} The style template object or null
+   */
+  getStyleTemplateById: (id) => {
+    return styleTemplatesConfig.templates?.[id] || null;
+  },
+
+  /**
+   * Build a complete prompt with looking, visual style, and style template
+   * @param {string} lookingId - The looking option ID
+   * @param {string} visualStyleId - The visual style option ID
+   * @param {string} styleTemplateId - The style template ID
+   * @returns {string} Complete combined prompt string
+   */
+  buildCompletePrompt: (lookingId, visualStyleId, styleTemplateId) => {
+    const looking = configLoader.getLookingById(lookingId);
+    const visualStyle = configLoader.getVisualStyleById(visualStyleId);
+    const styleTemplate = configLoader.getStyleTemplateById(styleTemplateId);
+
+    if (!looking || !visualStyle) {
+      throw new Error('Invalid looking or visual style ID');
+    }
+
+    let prompt = `${looking.prompt_modifier}, ${visualStyle.prompt_modifier}`;
+
+    if (styleTemplate) {
+      prompt += `, ${styleTemplate.prompt}`;
+    }
+
+    return prompt;
   }
 };
 
