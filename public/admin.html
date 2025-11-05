@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Character Prompt Configuration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            font-size: 21px;
+            color: #6e6e73;
+            font-weight: 400;
+        }
+
+        .section {
+            background: white;
+            border-radius: 18px;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e5e5e7;
+        }
+
+        .section-title {
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .add-btn {
+            background: #0071e3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 980px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .add-btn:hover {
+            background: #0077ed;
+            transform: scale(1.02);
+        }
+
+        .add-btn:active {
+            transform: scale(0.98);
+        }
+
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .item-card {
+            background: #f5f5f7;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+
+        .item-card:hover {
+            background: #e8e8ed;
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .item-name {
+            font-size: 17px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+
+        .item-id {
+            font-size: 13px;
+            color: #6e6e73;
+            margin-bottom: 8px;
+        }
+
+        .item-prompt {
+            font-size: 14px;
+            color: #1d1d1f;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .icon-btn:hover {
+            opacity: 1;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 18px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6e6e73;
+            margin-bottom: 8px;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #0071e3;
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+
+        .btn-secondary {
+            background: #e8e8ed;
+            color: #1d1d1f;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 980px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #d2d2d7;
+        }
+
+        .export-section {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 40px;
+        }
+
+        .export-btn {
+            background: #1d1d1f;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 980px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .export-btn:hover {
+            background: #424245;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 36px;
+            }
+
+            .items-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Character Configuration</h1>
+            <p class="subtitle">Manage prompt configurations for character generation</p>
+        </header>
+
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Looking</h2>
+                <button class="add-btn" onclick="openModal('looking')">Add New</button>
+            </div>
+            <div class="items-grid" id="looking-grid"></div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Visual Style</h2>
+                <button class="add-btn" onclick="openModal('visual_style')">Add New</button>
+            </div>
+            <div class="items-grid" id="visual-style-grid"></div>
+        </div>
+
+        <div class="export-section">
+            <button class="export-btn" onclick="exportConfig()">Export Configuration</button>
+            <button class="export-btn" onclick="importConfig()">Import Configuration</button>
+        </div>
+    </div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h3 class="modal-title" id="modal-title">Add New Item</h3>
+            <form id="item-form">
+                <div class="form-group">
+                    <label for="item-id">ID</label>
+                    <input type="text" id="item-id" required placeholder="e.g., better_looking">
+                </div>
+                <div class="form-group">
+                    <label for="item-name">Name</label>
+                    <input type="text" id="item-name" required placeholder="e.g., Better-Looking">
+                </div>
+                <div class="form-group">
+                    <label for="item-prompt">Prompt Modifier</label>
+                    <textarea id="item-prompt" required placeholder="e.g., better-looking, enhanced features, more attractive"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="add-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <input type="file" id="import-file" style="display: none;" accept=".json">
+
+    <script>
+        let config = {
+            config_name: "AI Character Generation",
+            description: "Configuration for generating different AI character variations",
+            looking: {},
+            visual_style: {}
+        };
+
+        let currentType = '';
+        let editingId = null;
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('../src/config/transformation_prompts.json');
+                if (response.ok) {
+                    config = await response.json();
+                    renderAll();
+                }
+            } catch (error) {
+                console.log('Using default config');
+                renderAll();
+            }
+        }
+
+        function renderAll() {
+            renderItems('looking', 'looking-grid');
+            renderItems('visual_style', 'visual-style-grid');
+        }
+
+        function renderItems(type, gridId) {
+            const grid = document.getElementById(gridId);
+            grid.innerHTML = '';
+
+            const items = config[type] || {};
+            Object.entries(items).forEach(([key, item]) => {
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `
+                    <div class="item-header">
+                        <div class="item-name">${item.name}</div>
+                        <div class="item-actions">
+                            <button class="icon-btn" onclick="editItem('${type}', '${key}')" title="Edit">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                                </svg>
+                            </button>
+                            <button class="icon-btn" onclick="deleteItem('${type}', '${key}')" title="Delete">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="item-id">${item.id}</div>
+                    <div class="item-prompt">${item.prompt_modifier}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openModal(type, id = null) {
+            currentType = type;
+            editingId = id;
+
+            const modal = document.getElementById('modal');
+            const form = document.getElementById('item-form');
+            const title = document.getElementById('modal-title');
+
+            if (id) {
+                title.textContent = 'Edit Item';
+                const item = config[type][id];
+                document.getElementById('item-id').value = item.id;
+                document.getElementById('item-name').value = item.name;
+                document.getElementById('item-prompt').value = item.prompt_modifier;
+                document.getElementById('item-id').disabled = true;
+            } else {
+                title.textContent = 'Add New Item';
+                form.reset();
+                document.getElementById('item-id').disabled = false;
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            document.getElementById('item-form').reset();
+            editingId = null;
+        }
+
+        function editItem(type, id) {
+            openModal(type, id);
+        }
+
+        function deleteItem(type, id) {
+            if (confirm('Are you sure you want to delete this item?')) {
+                delete config[type][id];
+                renderAll();
+            }
+        }
+
+        document.getElementById('item-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('item-id').value;
+            const name = document.getElementById('item-name').value;
+            const prompt = document.getElementById('item-prompt').value;
+
+            if (editingId) {
+                delete config[currentType][editingId];
+            }
+
+            config[currentType][id] = {
+                id: id,
+                name: name,
+                prompt_modifier: prompt
+            };
+
+            renderAll();
+            closeModal();
+        });
+
+        function exportConfig() {
+            const dataStr = JSON.stringify(config, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'transformation_prompts.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importConfig() {
+            document.getElementById('import-file').click();
+        }
+
+        document.getElementById('import-file').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        config = JSON.parse(e.target.result);
+                        renderAll();
+                        alert('Configuration imported successfully!');
+                    } catch (error) {
+                        alert('Error importing configuration. Please check the file format.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') {
+                closeModal();
+            }
+        });
+
+        loadConfig();
+    </script>
+</body>
+</html>

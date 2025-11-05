@@ -1,0 +1,58 @@
+{
+  "config_name": "AI Character Generation",
+  "description": "Configuration for generating different AI character variations",
+  "looking": {
+    "better_looking": {
+      "id": "better_looking",
+      "name": "Better-Looking",
+      "prompt_modifier": "better-looking, enhanced features, more attractive, refined appearance"
+    },
+    "japanese_looking": {
+      "id": "japanese_looking",
+      "name": "Japanese-Looking",
+      "prompt_modifier": "Japanese appearance, East Asian features, Japanese ethnicity"
+    },
+    "more_male": {
+      "id": "more_male",
+      "name": "More Male",
+      "prompt_modifier": "more masculine, stronger male features, masculine appearance"
+    },
+    "more_female": {
+      "id": "more_female",
+      "name": "More Female",
+      "prompt_modifier": "more feminine, softer female features, feminine appearance"
+    },
+    "white_skinned": {
+      "id": "white_skinned",
+      "name": "White-Skinned",
+      "prompt_modifier": "white skin tone, fair skin, light complexion"
+    },
+    "dark_skinned": {
+      "id": "dark_skinned",
+      "name": "Dark-Skinned",
+      "prompt_modifier": "dark skin tone, deep complexion, darker skin"
+    }
+  },
+  "visual_style": {
+    "realistic": {
+      "id": "realistic",
+      "name": "Realistic",
+      "prompt_modifier": "photorealistic, realistic lighting, high detail, lifelike"
+    },
+    "game_render_realistic": {
+      "id": "game_render_realistic",
+      "name": "Game Render Realistic",
+      "prompt_modifier": "game engine render, Unreal Engine style, realistic game graphics, 3D game character"
+    },
+    "2d_cartoon": {
+      "id": "2d_cartoon",
+      "name": "2D Cartoon",
+      "prompt_modifier": "2D cartoon style, animated illustration, cartoon art, flat shading"
+    },
+    "3d_cartoon": {
+      "id": "3d_cartoon",
+      "name": "3D Cartoon",
+      "prompt_modifier": "3D cartoon style, Pixar style, stylized 3D, cartoon render"
+    }
+  }
+}
