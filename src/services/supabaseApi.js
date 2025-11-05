@@ -11,22 +11,46 @@ export const supabaseApi = {
    */
   transformImage: async (identityPhotoUrl, lookingType, visualStyle) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      console.log('[supabaseApi] Starting transformImage...');
+      console.log('[supabaseApi] Identity photo URL:', identityPhotoUrl);
+      console.log('[supabaseApi] Looking type:', lookingType);
+      console.log('[supabaseApi] Visual style:', visualStyle);
+
+      // Get user (optional - edge function works without auth)
+      let userId = null;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id;
+        console.log('[supabaseApi] User ID:', userId || 'No user authenticated');
+      } catch (authError) {
+        console.warn('[supabaseApi] No authenticated user, proceeding without userId:', authError);
+      }
+
+      console.log('[supabaseApi] Invoking transform-image edge function...');
 
       const { data, error } = await supabase.functions.invoke('transform-image', {
         body: {
           identityPhotoUrl,
           lookingType,
           visualStyle,
-          userId: user?.id,
+          userId,
         },
       });
 
-      if (error) throw error;
+      console.log('[supabaseApi] Edge function response:', { data, error });
+
+      if (error) {
+        console.error('[supabaseApi] Edge function error:', error);
+        throw new Error(`Edge Function Error: ${error.message || JSON.stringify(error)}`);
+      }
+
+      if (!data) {
+        throw new Error('No data returned from edge function');
+      }
 
       return data;
     } catch (error) {
-      console.error('Transform image error:', error);
+      console.error('[supabaseApi] Transform image error:', error);
       throw error;
     }
   },
@@ -40,22 +64,46 @@ export const supabaseApi = {
    */
   batchTransform: async (identityPhotoUrl, visualStyle = 'realistic', lookingTypes = null) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      console.log('[supabaseApi] Starting batchTransform...');
+      console.log('[supabaseApi] Identity photo URL:', identityPhotoUrl);
+      console.log('[supabaseApi] Visual style:', visualStyle);
+      console.log('[supabaseApi] Looking types:', lookingTypes);
+
+      // Get user (optional - edge function works without auth)
+      let userId = null;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id;
+        console.log('[supabaseApi] User ID:', userId || 'No user authenticated');
+      } catch (authError) {
+        console.warn('[supabaseApi] No authenticated user, proceeding without userId:', authError);
+      }
+
+      console.log('[supabaseApi] Invoking batch-transform edge function...');
 
       const { data, error } = await supabase.functions.invoke('batch-transform', {
         body: {
           identityPhotoUrl,
           visualStyle,
-          userId: user?.id,
+          userId,
           lookingTypes,
         },
       });
 
-      if (error) throw error;
+      console.log('[supabaseApi] Edge function response:', { data, error });
+
+      if (error) {
+        console.error('[supabaseApi] Edge function error:', error);
+        throw new Error(`Edge Function Error: ${error.message || JSON.stringify(error)}`);
+      }
+
+      if (!data) {
+        throw new Error('No data returned from edge function');
+      }
 
       return data;
     } catch (error) {
-      console.error('Batch transform error:', error);
+      console.error('[supabaseApi] Batch transform error:', error);
       throw error;
     }
   },
@@ -63,39 +111,62 @@ export const supabaseApi = {
   /**
    * Upload identity photo to Supabase Storage
    * @param {File} file - Image file to upload
-   * @param {string} userId - User ID
+   * @param {string} userId - User ID (optional, will use anonymous folder if not provided)
    * @returns {Promise<object>} Upload result with URL
    */
-  uploadIdentityPhoto: async (file, userId) => {
+  uploadIdentityPhoto: async (file, userId = null) => {
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+      const userFolder = userId || `anonymous`;
+      const fileName = `${userFolder}/${crypto.randomUUID()}.${fileExt}`;
+
+      console.log('[supabaseApi] Uploading identity photo:', fileName);
 
       const { data, error } = await supabase.storage
         .from('identity-photos')
-        .upload(fileName, file);
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[supabaseApi] Upload error:', error);
+        throw error;
+      }
+
+      console.log('[supabaseApi] Upload successful:', data);
 
       const { data: { publicUrl } } = supabase.storage
         .from('identity-photos')
         .getPublicUrl(fileName);
 
-      // Create identity_photos record
-      const { data: photoRecord, error: dbError } = await supabase
-        .from('identity_photos')
-        .insert({
-          user_id: userId,
-          photo_url: publicUrl,
-          storage_path: fileName,
-        })
-        .select()
-        .single();
+      console.log('[supabaseApi] Public URL:', publicUrl);
 
-      if (dbError) throw dbError;
+      // Only create database record if userId is provided
+      if (userId) {
+        const { data: photoRecord, error: dbError } = await supabase
+          .from('identity_photos')
+          .insert({
+            user_id: userId,
+            photo_url: publicUrl,
+            storage_path: fileName,
+          })
+          .select()
+          .single();
+
+        if (dbError) {
+          console.warn('[supabaseApi] Database insert warning:', dbError);
+        } else if (photoRecord) {
+          return {
+            id: photoRecord.id,
+            url: publicUrl,
+            storagePath: fileName,
+          };
+        }
+      }
 
       return {
-        id: photoRecord.id,
+        id: `photo-${Date.now()}`,
         url: publicUrl,
         storagePath: fileName,
       };

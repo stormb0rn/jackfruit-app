@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import useAppStore from '../stores/appStore';
-import { api } from '../services/api';
+import supabaseApi from '../services/supabaseApi';
 
 function IdentityUpload() {
   const [uploading, setUploading] = useState(false);
@@ -13,20 +13,18 @@ function IdentityUpload() {
     if (file) {
       setUploading(true);
       try {
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const response = await fetch(reader.result);
-          const blob = await response.blob();
-          const uploadFile = new File([blob], 'identity.jpg', { type: 'image/jpeg' });
+        console.log('Uploading file to Supabase:', file.name);
 
-          const result = await api.uploadIdentityPhoto(uploadFile);
-          setIdentityPhoto(result);
-          setCurrentStep('edit-look');
-        };
-        reader.readAsDataURL(file);
+        // Upload to Supabase Storage
+        const result = await supabaseApi.uploadIdentityPhoto(file);
+
+        console.log('Upload successful:', result);
+
+        setIdentityPhoto(result);
+        setCurrentStep('edit-look');
       } catch (error) {
         console.error('Upload failed:', error);
-        alert('Upload failed. Please try again.');
+        alert(`Upload failed: ${error.message}. Please try again.`);
       } finally {
         setUploading(false);
       }
@@ -46,12 +44,6 @@ function IdentityUpload() {
   const handleChooseFromAlbum = () => {
     setShowImageSourceModal(false);
     document.getElementById('albumInput').click();
-  };
-
-  const handleCreateAvatar = () => {
-    // For now, just go to edit-look step
-    // In future, this could be a different flow
-    setCurrentStep('edit-look');
   };
 
   return (
@@ -104,14 +96,6 @@ function IdentityUpload() {
               <Text style={styles.buttonText}>
                 {uploading ? 'Uploading...' : 'Create with Image'}
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.button}
-              onPress={handleCreateAvatar}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.buttonText}>Create an Avatar</Text>
             </TouchableOpacity>
           </View>
         </View>

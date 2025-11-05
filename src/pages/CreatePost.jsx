@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView, TextInput, StyleSheet } from 'react-native';
 import useAppStore from '../stores/appStore';
-import { api } from '../services/api';
+import supabaseApi from '../services/supabaseApi';
 
 function CreatePost() {
   const [caption, setCaption] = useState('');
@@ -29,21 +29,34 @@ function CreatePost() {
     }
     setPosting(true);
     try {
-      const postData = {
-        userId: currentUser.id,
-        username: currentUser.username,
+      console.log('Creating post with:', {
+        photos: selectedPhotos.length,
+        caption: caption
+      });
+
+      // For now, just store locally until user authentication is implemented
+      // TODO: Call supabaseApi.createPost when auth is ready
+      const newPost = {
+        id: `post-${Date.now()}`,
+        userId: currentUser?.id || 'anonymous',
+        username: currentUser?.username || 'Anonymous User',
         userAvatar: identityPhoto?.url,
         photos: selectedPhotos,
         caption: caption,
+        timestamp: new Date().toISOString(),
+        likes: 0,
+        comments: []
       };
-      const newPost = await api.createPost(postData);
+
       addPost(newPost);
       setSelectedPhotos([]);
       setCaption('');
       setCurrentStep('feed');
+
+      console.log('Post created successfully');
     } catch (error) {
       console.error('Failed to create post:', error);
-      alert('Failed to create post. Please try again.');
+      alert(`Failed to create post: ${error.message}. Please try again.`);
     } finally {
       setPosting(false);
     }

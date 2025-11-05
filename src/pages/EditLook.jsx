@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, FlatList, Dimensions } from 'react-native';
 import useAppStore from '../stores/appStore';
 import { configLoader } from '../utils/configLoader';
 import supabaseApi from '../services/supabaseApi';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // Icon mapping for looking options
 const iconMap = {
@@ -19,6 +21,8 @@ function EditLook() {
   const [transformationOptions, setTransformationOptions] = useState([]);
   const [previewStates, setPreviewStates] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef(null);
 
   useEffect(() => {
     const lookingOptions = configLoader.getLookingOptions();
@@ -31,11 +35,11 @@ function EditLook() {
     }));
     setTransformationOptions(formattedOptions);
 
-    // Initialize preview states
+    // Initialize preview states with loading true
     const initialStates = {};
     formattedOptions.forEach(option => {
       initialStates[option.id] = {
-        loading: false,
+        loading: true,
         imageUrl: null,
         error: null
       };
@@ -60,12 +64,18 @@ function EditLook() {
     setIsGenerating(true);
 
     try {
+      console.log('Starting batch transformation...');
+      console.log('Identity photo URL:', identityPhoto.url);
+      console.log('Looking types:', transformationOptions.map(opt => opt.id));
+
       // Call Supabase edge function for batch transformation
       const result = await supabaseApi.batchTransform(
         identityPhoto.url,
         'realistic',
         transformationOptions.map(opt => opt.id)
       );
+
+      console.log('Batch transform result:', result);
 
       if (result.success) {
         // Update preview states with results
@@ -80,11 +90,30 @@ function EditLook() {
         setPreviewStates(newPreviewStates);
       } else {
         console.error('Batch transform failed:', result);
-        alert('Failed to generate transformations');
+        alert('Failed to generate transformations: ' + (result.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error in batch transformation:', error);
-      alert('Failed to generate transformations: ' + error.message);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+
+      let errorMessage = 'Failed to generate transformations';
+
+      // Provide more specific error messages
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        errorMessage = 'Network error: Cannot connect to Supabase. Please check your internet connection.';
+      } else if (error.message.includes('Edge Function')) {
+        errorMessage = 'Edge function error: The batch-transform function may not be deployed.';
+      } else if (error.message.includes('auth')) {
+        errorMessage = 'Authentication error: Please ensure you are logged in.';
+      } else {
+        errorMessage = `Error: ${error.message}`;
+      }
+
+      alert(errorMessage);
 
       // Set all to error state
       const errorStates = {};
@@ -92,7 +121,7 @@ function EditLook() {
         errorStates[opt.id] = {
           loading: false,
           imageUrl: null,
-          error: 'Generation failed'
+          error: error.message || 'Generation failed'
         };
       });
       setPreviewStates(errorStates);
@@ -101,264 +130,339 @@ function EditLook() {
     setIsGenerating(false);
   };
 
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      setCurrentIndex(viewableItems[0].index || 0);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50
+  }).current;
+
   const handleSelectTransformation = (transformationType) => {
     setSelectedTransformation(transformationType);
     setCurrentStep('templates');
   };
 
-  const renderOptionCard = (option) => {
+  const handleSelectCurrentTransformation = () => {
+    if (transformationOptions[currentIndex]) {
+      const option = transformationOptions[currentIndex];
+      const state = previewStates[option.id] || {};
+
+      // Allow selection even if loading (will just proceed with the transformation type)
+      if (!state.error) {
+        handleSelectTransformation(option.id);
+      } else {
+        alert('This transformation failed to generate. Please try another option.');
+      }
+    }
+  };
+
+  const renderCarouselItem = ({ item: option }) => {
     const state = previewStates[option.id] || {};
     const { loading, imageUrl, error } = state;
 
     return (
-      <TouchableOpacity
-        key={option.id}
-        onPress={() => !loading && handleSelectTransformation(option.id)}
-        style={[styles.optionCard, loading && styles.optionCardDisabled]}
-        activeOpacity={0.7}
-        disabled={loading}
-      >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#0071e3" />
-            <Text style={styles.loadingText}>Generating...</Text>
-          </View>
-        ) : imageUrl ? (
-          <View style={styles.previewContainer}>
+      <View style={styles.carouselItemContainer}>
+        <View style={styles.carouselCard}>
+          {loading ? (
+            <View style={styles.carouselLoadingContainer}>
+              {identityPhoto && (
+                <Image
+                  source={{ uri: identityPhoto.url }}
+                  style={styles.blurredIdentityImage}
+                  resizeMode="cover"
+                  blurRadius={10}
+                />
+              )}
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color="#ffffff" />
+                <Text style={styles.carouselLoadingText}>Generating {option.name}...</Text>
+              </View>
+            </View>
+          ) : imageUrl ? (
             <Image
               source={{ uri: imageUrl }}
-              style={styles.previewImage}
+              style={styles.carouselImage}
               resizeMode="cover"
             />
-            <View style={styles.optionOverlay}>
-              <Text style={styles.optionIcon}>{option.icon}</Text>
+          ) : error ? (
+            <View style={styles.carouselErrorContainer}>
+              <Text style={styles.errorIcon}>⚠️</Text>
+              <Text style={styles.carouselErrorText}>{error}</Text>
               <Text style={styles.optionName}>{option.name}</Text>
             </View>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorIcon}>⚠️</Text>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.optionName}>{option.name}</Text>
-          </View>
-        ) : (
-          <View style={styles.placeholderContainer}>
-            <Text style={styles.optionIcon}>{option.icon}</Text>
-            <Text style={styles.optionName}>{option.name}</Text>
-            <Text style={styles.optionDescription}>{option.description}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
+          ) : (
+            <View style={styles.carouselPlaceholderContainer}>
+              {identityPhoto && (
+                <Image
+                  source={{ uri: identityPhoto.url }}
+                  style={styles.blurredIdentityImage}
+                  resizeMode="cover"
+                  blurRadius={20}
+                />
+              )}
+              <View style={styles.placeholderOverlay}>
+                <Text style={styles.optionIcon}>{option.icon}</Text>
+                <Text style={styles.optionName}>{option.name}</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
     );
   };
 
+  const renderPaginationDots = () => (
+    <View style={styles.paginationContainer}>
+      {transformationOptions.map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.paginationDot,
+            currentIndex === index && styles.paginationDotActive
+          ]}
+        />
+      ))}
+    </View>
+  );
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => setCurrentStep('upload')}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Choose Your Look Transformation</Text>
-          <Text style={styles.subtitle}>
-            {isGenerating
-              ? 'Generating preview transformations...'
-              : 'Select your preferred transformation to continue'
-            }
-          </Text>
-        </View>
+    <View style={styles.container}>
+      <View style={styles.gradientOverlay} />
 
-        {identityPhoto && (
-          <View style={styles.identityPreview}>
-            <Image
-              source={{ uri: identityPhoto.url }}
-              style={styles.identityImage}
-              resizeMode="cover"
-            />
-            <Text style={styles.identityLabel}>Your Identity Photo</Text>
-          </View>
-        )}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => setCurrentStep('upload')}
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>SELECT YOUR STYLE</Text>
+      </View>
 
-        <View style={styles.optionsGrid}>
-          {transformationOptions.map(option => renderOptionCard(option))}
-        </View>
+      <View style={styles.carouselSection}>
+        <FlatList
+          ref={flatListRef}
+          data={transformationOptions}
+          renderItem={renderCarouselItem}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          snapToAlignment="center"
+          decelerationRate="fast"
+          scrollEnabled={true}
+        />
+
+        {renderPaginationDots()}
 
         {isGenerating && (
-          <View style={styles.overallProgress}>
-            <Text style={styles.progressText}>
-              Generating transformations for all options...
-            </Text>
-          </View>
+          <Text style={styles.swipeHint}>← Swipe to preview other styles →</Text>
         )}
       </View>
-    </ScrollView>
+
+      <TouchableOpacity
+        style={styles.selectButton}
+        onPress={handleSelectCurrentTransformation}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.selectButtonText}>SELECT</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#000000',
   },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  content: {
-    maxWidth: 1200,
-    width: '100%',
-    alignSelf: 'center',
+  gradientOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '50%',
+    backgroundColor: '#1a0a2e',
+    opacity: 0.6,
   },
   header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
     alignItems: 'center',
     marginBottom: 40,
+    zIndex: 1,
   },
   backButton: {
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    left: 20,
+    top: 60,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: 'white',
-    marginBottom: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   backButtonText: {
     fontSize: 14,
-    color: '#333',
+    color: '#ffffff',
     fontWeight: '600',
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 12,
+    color: '#ffffff',
     textAlign: 'center',
+    letterSpacing: 2,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  identityPreview: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  identityImage: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 4,
-    borderColor: 'white',
-  },
-  identityLabel: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#888',
-  },
-  optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 40,
-  },
-  optionCard: {
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    minWidth: 200,
-    minHeight: 280,
-    flex: 1,
-    flexBasis: '30%',
-    overflow: 'hidden',
-  },
-  optionCardDisabled: {
-    opacity: 0.7,
-  },
-  loadingContainer: {
+  carouselSection: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    zIndex: 1,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+  carouselItemContainer: {
+    width: screenWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
   },
-  previewContainer: {
+  carouselCard: {
+    width: screenWidth - 80,
+    height: screenHeight * 0.55,
+    borderRadius: 30,
+    overflow: 'hidden',
+    backgroundColor: '#1a1a1a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  carouselImage: {
+    width: '100%',
+    height: '100%',
+  },
+  carouselLoadingContainer: {
+    width: '100%',
+    height: '100%',
     position: 'relative',
+  },
+  blurredIdentityImage: {
     width: '100%',
     height: '100%',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  optionOverlay: {
     position: 'absolute',
-    bottom: 0,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 16,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  optionIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+  carouselLoadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '500',
   },
-  optionName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
-  },
-  errorContainer: {
+  carouselErrorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    backgroundColor: '#1a1a1a',
   },
   errorIcon: {
     fontSize: 48,
     marginBottom: 12,
   },
-  errorText: {
-    fontSize: 12,
-    color: '#d32f2f',
+  carouselErrorText: {
+    fontSize: 14,
+    color: '#ff6b6b',
     marginBottom: 12,
     textAlign: 'center',
   },
-  placeholderContainer: {
-    flex: 1,
+  carouselPlaceholderContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  placeholderOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
   },
-  optionDescription: {
-    fontSize: 12,
-    color: '#888',
-    lineHeight: 18,
+  optionIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  optionName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
     textAlign: 'center',
-    marginTop: 8,
   },
-  overallProgress: {
-    padding: 20,
-    backgroundColor: '#fff3e0',
-    borderRadius: 8,
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginTop: 30,
+    paddingVertical: 20,
   },
-  progressText: {
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: '#ffffff',
+    width: 24,
+  },
+  swipeHint: {
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 14,
-    color: '#f57c00',
     textAlign: 'center',
-    fontWeight: '500',
+    marginTop: 16,
+    fontStyle: 'italic',
+  },
+  selectButton: {
+    backgroundColor: '#ffffff',
+    marginHorizontal: 40,
+    marginBottom: 50,
+    paddingVertical: 20,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+    zIndex: 1,
+  },
+  selectButtonDisabled: {
+    opacity: 0.6,
+  },
+  selectButtonText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#000000',
+    letterSpacing: 2,
   },
 });
 

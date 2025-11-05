@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, FlatList, Dimensions } from 'react-native';
 import useAppStore from '../stores/appStore';
-import { api } from '../services/api';
+import supabaseApi from '../services/supabaseApi';
 import { configLoader } from '../utils/configLoader';
+import { styleTemplateImages } from '../assets/style-templates';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 function Templates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef(null);
   const { identityPhoto, selectedTransformation, setSelectedTemplate, addGeneratedPhoto, setCurrentStep } = useAppStore();
 
   useEffect(() => {
@@ -19,13 +24,14 @@ function Templates() {
       // Load style templates from config
       const styleTemplates = configLoader.getStyleTemplates();
 
-      // Map templates to include local image paths
+      // Map templates to include imported image references
       const templatesWithImages = styleTemplates.map(template => ({
         ...template,
-        thumbnail: require(`../assets/style-templates/${template.image}`)
+        thumbnail: styleTemplateImages[template.image]
       }));
 
       setTemplates(templatesWithImages);
+      console.log('Loaded templates:', templatesWithImages.length);
     } catch (error) {
       console.error('Failed to load templates:', error);
     } finally {
@@ -41,120 +47,298 @@ function Templates() {
 
     setGenerating(true);
     try {
+      console.log('Generating transformation with:', {
+        photoUrl: identityPhoto.url,
+        transformation: selectedTransformation,
+        visualStyle: template.id
+      });
+
       setSelectedTemplate(template.id);
-      const result = await api.generateTransformation(identityPhoto.id, selectedTransformation, template.id);
-      addGeneratedPhoto(result);
-      setCurrentStep('create-post');
+
+      // Call Supabase edge function to transform image
+      const result = await supabaseApi.transformImage(
+        identityPhoto.url,
+        selectedTransformation,
+        template.id
+      );
+
+      console.log('Transformation result:', result);
+
+      if (result.success) {
+        addGeneratedPhoto({
+          id: result.transformationId || `transform-${Date.now()}`,
+          url: result.imageUrl,
+          type: selectedTransformation,
+          template: template.id,
+          description: result.description || '',
+        });
+        setCurrentStep('create-post');
+      } else {
+        throw new Error(result.error || 'Transformation failed');
+      }
     } catch (error) {
       console.error('Generation failed:', error);
-      alert('Failed to generate transformation. Please try again.');
+      alert(`Failed to generate transformation: ${error.message}. Please try again.`);
     } finally {
       setGenerating(false);
     }
   };
 
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      setCurrentIndex(viewableItems[0].index || 0);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50
+  }).current;
+
+  const handleSelectCurrentTemplate = () => {
+    if (templates[currentIndex]) {
+      handleSelectTemplate(templates[currentIndex]);
+    }
+  };
+
+  const renderCarouselItem = ({ item }) => (
+    <View style={styles.carouselItemContainer}>
+      <View style={styles.carouselCard}>
+        <Image source={item.thumbnail} style={styles.carouselImage} resizeMode="cover" />
+      </View>
+    </View>
+  );
+
+  const renderPaginationDots = () => (
+    <View style={styles.paginationContainer}>
+      {templates.map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.paginationDot,
+            currentIndex === index && styles.paginationDotActive
+          ]}
+        />
+      ))}
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007bff" />
+        <ActivityIndicator size="large" color="#ffffff" />
         <Text style={styles.loadingText}>Loading templates...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setCurrentStep('edit-look')} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Select a Style Template</Text>
-          <Text style={styles.subtitle}>
-            Choose from {templates.length} different aesthetic styles to apply to your transformation
-          </Text>
-        </View>
+    <View style={styles.container}>
+      <View style={styles.gradientOverlay} />
 
-        {selectedTransformation && (
-          <View style={styles.transformInfo}>
-            <Text style={styles.transformText}>
-              Transformation: <Text style={styles.transformBold}>{selectedTransformation.replace('-', ' ').toUpperCase()}</Text>
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.templatesGrid}>
-          {templates.map((template) => (
-            <TouchableOpacity
-              key={template.id}
-              onPress={() => handleSelectTemplate(template)}
-              disabled={generating}
-              style={[styles.templateCard, generating && styles.templateCardDisabled]}
-              activeOpacity={0.7}
-            >
-              <Image source={template.thumbnail} style={styles.thumbnailImage} resizeMode="cover" />
-              <View style={styles.templateOverlay}>
-                <Text style={styles.templateName}>{template.name}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {generating && (
-          <View style={styles.generatingOverlay}>
-            <View style={styles.generatingBox}>
-              <ActivityIndicator size="large" color="#007bff" />
-              <Text style={styles.generatingText}>Generating your transformation...</Text>
-              <Text style={styles.generatingSubtext}>This may take a few moments</Text>
-            </View>
-          </View>
-        )}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => setCurrentStep('edit-look')} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>SELECT YOUR STYLE</Text>
       </View>
-    </ScrollView>
+
+      <View style={styles.carouselSection}>
+        <FlatList
+          ref={flatListRef}
+          data={templates}
+          renderItem={renderCarouselItem}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          snapToAlignment="center"
+          decelerationRate="fast"
+        />
+
+        {renderPaginationDots()}
+      </View>
+
+      <TouchableOpacity
+        style={[styles.selectButton, generating && styles.selectButtonDisabled]}
+        onPress={handleSelectCurrentTemplate}
+        disabled={generating}
+        activeOpacity={0.8}
+      >
+        {generating ? (
+          <ActivityIndicator size="small" color="#ffffff" />
+        ) : (
+          <Text style={styles.selectButtonText}>SELECT</Text>
+        )}
+      </TouchableOpacity>
+
+      {generating && (
+        <View style={styles.generatingOverlay}>
+          <View style={styles.generatingBox}>
+            <ActivityIndicator size="large" color="#007bff" />
+            <Text style={styles.generatingText}>Generating your transformation...</Text>
+            <Text style={styles.generatingSubtext}>This may take a few moments</Text>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  contentContainer: { padding: 20, paddingBottom: 40 },
-  content: { maxWidth: 1200, width: '100%', alignSelf: 'center' },
-  header: { alignItems: 'center', marginBottom: 40 },
-  backButton: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'white', marginBottom: 20 },
-  backButtonText: { fontSize: 14, color: '#333', fontWeight: '600' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 12, textAlign: 'center' },
-  subtitle: { fontSize: 16, color: '#666', textAlign: 'center' },
-  transformInfo: { padding: 16, backgroundColor: '#e8f5e9', borderRadius: 8, marginBottom: 32, alignItems: 'center' },
-  transformText: { fontSize: 14, color: '#2e7d32' },
-  transformBold: { fontWeight: 'bold' },
-  templatesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'flex-start' },
-  templateCard: {
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    overflow: 'hidden',
-    width: 220,
-    height: 280,
-    position: 'relative'
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
   },
-  templateCardDisabled: { opacity: 0.6 },
-  thumbnailImage: { width: '100%', height: '100%', backgroundColor: '#f5f5f5' },
-  templateOverlay: {
+  gradientOverlay: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    padding: 16,
-    alignItems: 'center'
+    bottom: 0,
+    height: '50%',
+    backgroundColor: '#1a0a2e',
+    opacity: 0.6,
   },
-  templateName: { fontSize: 16, fontWeight: 'bold', color: 'white', textAlign: 'center' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8f9fa' },
-  loadingText: { marginTop: 16, fontSize: 18, color: '#666' },
-  generatingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  generatingBox: { backgroundColor: 'white', padding: 40, borderRadius: 12, alignItems: 'center', maxWidth: 400 },
-  generatingText: { marginTop: 20, fontSize: 18, fontWeight: 'bold', color: '#333', textAlign: 'center' },
-  generatingSubtext: { marginTop: 8, fontSize: 14, color: '#888', textAlign: 'center' },
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 40,
+    zIndex: 1,
+  },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    top: 60,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  backButtonText: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    textAlign: 'center',
+    letterSpacing: 2,
+  },
+  carouselSection: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  carouselItemContainer: {
+    width: screenWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  carouselCard: {
+    width: screenWidth - 80,
+    height: screenHeight * 0.55,
+    borderRadius: 30,
+    overflow: 'hidden',
+    backgroundColor: '#1a1a1a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  carouselImage: {
+    width: '100%',
+    height: '100%',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 30,
+    paddingVertical: 20,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: '#ffffff',
+    width: 24,
+  },
+  selectButton: {
+    backgroundColor: '#ffffff',
+    marginHorizontal: 40,
+    marginBottom: 50,
+    paddingVertical: 20,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+    zIndex: 1,
+  },
+  selectButtonDisabled: {
+    opacity: 0.6,
+  },
+  selectButtonText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#000000',
+    letterSpacing: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 18,
+    color: '#ffffff',
+  },
+  generatingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  generatingBox: {
+    backgroundColor: 'white',
+    padding: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    marginHorizontal: 40,
+  },
+  generatingText: {
+    marginTop: 20,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  generatingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+  },
 });
 
 export default Templates;
