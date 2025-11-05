@@ -194,15 +194,6 @@ function EditLook() {
             </Text>
           </View>
         )}
-
-        {!isGenerating && transformationOptions.length > 0 && (
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              💡 After selecting a transformation, you'll choose from visual style templates
-              to further customize your look
-            </Text>
-          </View>
-        )}
       </View>
     </ScrollView>
   );
@@ -368,17 +359,6 @@ const styles = StyleSheet.create({
     color: '#f57c00',
     textAlign: 'center',
     fontWeight: '500',
-  },
-  infoBox: {
-    padding: 20,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#1976d2',
-    textAlign: 'center',
   },
 });
 
