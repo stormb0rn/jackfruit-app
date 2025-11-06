@@ -141,18 +141,16 @@ function EditLook() {
       console.log('Identity photo URL:', identityPhoto.url);
       console.log('Edit styles:', transformationOptions.map(opt => opt.id));
 
-      // Prepare edit styles array with id and prompt
-      const editStyles = transformationOptions.map(opt => ({
-        id: opt.id,
-        prompt: opt.prompt
-      }));
+      // Prepare edit style IDs array (backend will fetch prompts from database)
+      const editStyleIds = transformationOptions.map(opt => opt.id);
 
-      console.log('Prepared edit styles for batch generation:', JSON.stringify(editStyles, null, 2));
+      console.log('Prepared edit style IDs for batch generation:', editStyleIds);
 
       // Call Supabase edge function for batch image generation
+      // Backend will query the database for prompts based on these IDs
       const result = await supabaseApi.batchGenerateImages(
         identityPhoto.url,
-        editStyles
+        editStyleIds
       );
 
       console.log('Batch image generation result:', result);

@@ -57,12 +57,13 @@ export const supabaseApi = {
 
   /**
    * Call the batch-image-generation edge function to generate all edit style variations
+   * Backend will query the database for prompts based on edit style IDs
    * Includes validation and retry logic (retry once on failure)
    * @param {string} identityPhotoUrl - URL of the identity photo
-   * @param {Array<{id: string, prompt: string}>} editStyles - Array of edit styles with id and prompt
+   * @param {Array<string>} editStyleIds - Array of edit style IDs (backend fetches prompts)
    * @returns {Promise<object>} Batch image generation results
    */
-  batchGenerateImages: async (identityPhotoUrl, editStyles) => {
+  batchGenerateImages: async (identityPhotoUrl, editStyleIds) => {
     const maxRetries = 1;
     let lastError = null;
 
@@ -71,15 +72,15 @@ export const supabaseApi = {
       throw new Error('Identity photo URL is required');
     }
 
-    if (!Array.isArray(editStyles) || editStyles.length === 0) {
-      throw new Error('Edit styles array is required and must not be empty');
+    if (!Array.isArray(editStyleIds) || editStyleIds.length === 0) {
+      throw new Error('Edit style IDs array is required and must not be empty');
     }
 
-    // Validate all edit styles have required fields
-    const invalidStyles = editStyles.filter(style => !style.id || !style.prompt);
-    if (invalidStyles.length > 0) {
-      console.error('[supabaseApi] Invalid edit styles detected:', invalidStyles);
-      throw new Error(`Some edit styles are missing required fields: ${invalidStyles.map(s => s.id).join(', ')}`);
+    // Validate all IDs are strings
+    const invalidIds = editStyleIds.filter(id => typeof id !== 'string' || !id.trim());
+    if (invalidIds.length > 0) {
+      console.error('[supabaseApi] Invalid edit style IDs detected:', invalidIds);
+      throw new Error(`Some edit style IDs are invalid`);
     }
 
     // Retry logic
@@ -87,7 +88,7 @@ export const supabaseApi = {
       try {
         console.log(`[supabaseApi] Starting batch image generation (attempt ${attempt + 1}/${maxRetries + 1})...`);
         console.log('[supabaseApi] Identity photo URL:', identityPhotoUrl);
-        console.log('[supabaseApi] Edit styles:', JSON.stringify(editStyles, null, 2));
+        console.log('[supabaseApi] Edit style IDs:', editStyleIds);
 
         // Get user (optional - edge function works without auth)
         let userId = null;
@@ -104,7 +105,7 @@ export const supabaseApi = {
         const { data, error } = await supabase.functions.invoke('batch-image-generation', {
           body: {
             identityPhotoUrl,
-            editStyles,
+            editStyleIds,  // ✅ 传递 ID 数组，backend 会查询 prompts
             userId,
           },
         });

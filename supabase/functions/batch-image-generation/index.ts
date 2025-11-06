@@ -1,19 +1,20 @@
-// Supabase Edge Function to batch transform images for all looking options
+// Supabase Edge Function for batch image generation
+// Queries prompts from database based on edit style IDs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const FAL_API_ENDPOINT = "https://fal.run/fal-ai/nano-banana/edit";
 
+interface BatchImageGenerationRequest {
+  identityPhotoUrl: string;
+  editStyleIds: string[];  // 🔑 Changed: Now receives ID array instead of full edit styles
+  userId?: string;
+  identityPhotoId?: string;
+}
+
 interface EditStyle {
   id: string;
   prompt: string;
-}
-
-interface BatchTransformRequest {
-  identityPhotoUrl: string;
-  editStyles: EditStyle[];
-  userId?: string;
-  identityPhotoId?: string;
 }
 
 interface TransformResult {
@@ -22,6 +23,47 @@ interface TransformResult {
   imageUrl?: string;
   error?: string;
   transformationId?: string;
+}
+
+// Helper function to extract prompt text from various formats
+function extractPromptText(prompts: any): string {
+  if (!prompts) return '';
+  if (typeof prompts === 'string') return prompts;
+  if (Array.isArray(prompts) && prompts.length > 0) return prompts[0];
+  if (typeof prompts === 'object') {
+    return prompts.main || prompts.prompt || prompts.text || '';
+  }
+  return '';
+}
+
+// Query database for prompt by ID
+async function getPromptById(supabase: any, editStyleId: string): Promise<string> {
+  try {
+    console.log(`[batch-image-generation] Querying prompt for ID: ${editStyleId}`);
+
+    const { data, error } = await supabase
+      .from('prompt_items')
+      .select('prompts')
+      .eq('id', editStyleId)
+      .eq('category', 'looking')
+      .eq('enabled', true)
+      .single();
+
+    if (error || !data) {
+      throw new Error(`Prompt not found for ID: ${editStyleId}. Error: ${error?.message || 'Unknown error'}`);
+    }
+
+    const promptText = extractPromptText(data.prompts);
+    if (!promptText) {
+      throw new Error(`Prompt text is empty for ID: ${editStyleId}`);
+    }
+
+    console.log(`[batch-image-generation] Retrieved prompt for ${editStyleId}`);
+    return promptText;
+  } catch (error) {
+    console.error(`[batch-image-generation] Error fetching prompt for ${editStyleId}:`, error);
+    throw error;
+  }
 }
 
 async function transformSingleImage(
@@ -163,16 +205,16 @@ Deno.serve(async (req) => {
     // Parse request body
     const {
       identityPhotoUrl,
-      editStyles,
+      editStyleIds,  // 🔑 Changed: Now receives ID array
       userId,
       identityPhotoId,
-    }: BatchTransformRequest = await req.json();
+    }: BatchImageGenerationRequest = await req.json();
 
     // Validate required fields
-    if (!identityPhotoUrl || !editStyles || editStyles.length === 0) {
+    if (!identityPhotoUrl || !editStyleIds || editStyleIds.length === 0) {
       return new Response(
         JSON.stringify({
-          error: "Missing required fields: identityPhotoUrl, editStyles",
+          error: "Missing required fields: identityPhotoUrl, editStyleIds",
         }),
         {
           status: 400,
@@ -184,11 +226,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Batch transforming ${editStyles.length} variations`);
+    console.log(`[batch-image-generation] Batch generating images for ${editStyleIds.length} styles`);
+    console.log(`[batch-image-generation] Edit style IDs:`, editStyleIds);
 
-    // Transform all edit styles sequentially
+    // Initialize Supabase client for database queries
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Query prompts from database for each ID
+    const editStyles: EditStyle[] = [];
     const results: TransformResult[] = [];
 
+    for (const editStyleId of editStyleIds) {
+      try {
+        const prompt = await getPromptById(supabase, editStyleId);
+        editStyles.push({
+          id: editStyleId,
+          prompt,
+        });
+      } catch (error) {
+        console.error(`[batch-image-generation] Failed to get prompt for ${editStyleId}:`, error);
+        results.push({
+          editStyleId,
+          status: "failed",
+          error: error instanceof Error ? error.message : "Failed to retrieve prompt",
+        });
+      }
+    }
+
+    // Process the edit styles that were successfully loaded
     for (const editStyle of editStyles) {
       console.log(`Processing ${editStyle.id}...`);
       const result = await transformSingleImage(
@@ -223,7 +290,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error("Error in batch-transform function:", error);
+    console.error("[batch-image-generation] Error in batch-image-generation function:", error);
 
     return new Response(
       JSON.stringify({
