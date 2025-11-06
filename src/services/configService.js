@@ -33,7 +33,10 @@ const configService = {
       }
 
       console.log(`Loaded ${configType} config from Supabase`);
-      return data.config_data;
+
+      // Auto-assign order if missing
+      const config = configService.ensureOrder(data.config_data);
+      return config;
     } catch (error) {
       console.error(`Error loading ${configType} config:`, error);
       return configService.getDefaultConfig(configType);
@@ -122,6 +125,26 @@ const configService = {
     } catch (error) {
       console.error('Error initializing default configs:', error);
     }
+  },
+
+  /**
+   * Ensure all items have an order field
+   * Auto-assign order if missing based on current object key order
+   * @param {object} config - Configuration object
+   * @returns {object} Configuration with order fields
+   */
+  ensureOrder: (config) => {
+    const entries = Object.entries(config);
+    const result = {};
+
+    entries.forEach(([key, value], index) => {
+      result[key] = {
+        ...value,
+        order: value.order !== undefined ? value.order : index
+      };
+    });
+
+    return result;
   }
 };
 

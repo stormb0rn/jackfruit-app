@@ -4,60 +4,35 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const FAL_API_ENDPOINT = "https://fal.run/fal-ai/nano-banana/edit";
 
+interface EditStyle {
+  id: string;
+  prompt: string;
+}
+
 interface BatchTransformRequest {
   identityPhotoUrl: string;
-  visualStyle?: string;
+  editStyles: EditStyle[];
   userId?: string;
   identityPhotoId?: string;
-  lookingTypes?: string[];
 }
 
 interface TransformResult {
-  lookingType: string;
+  editStyleId: string;
   status: "completed" | "failed";
   imageUrl?: string;
   error?: string;
   transformationId?: string;
 }
 
-// Transformation prompt configuration
-const LOOKING_PROMPTS: Record<string, string> = {
-  better_looking: "better-looking, enhanced features, more attractive, refined appearance",
-  japanese_looking: "Japanese appearance, East Asian features, Japanese ethnicity",
-  more_male: "more masculine, stronger male features, masculine appearance",
-  more_female: "more feminine, softer female features, feminine appearance",
-  white_skinned: "white skin tone, fair skin, light complexion",
-  dark_skinned: "dark skin tone, deep complexion, darker skin",
-};
-
-const VISUAL_STYLE_PROMPTS: Record<string, string> = {
-  realistic: "photorealistic, realistic lighting, high detail, lifelike",
-  game_render_realistic: "game engine render, Unreal Engine style, realistic game graphics, 3D game character",
-  "2d_cartoon": "2D cartoon style, animated illustration, cartoon art, flat shading",
-  "3d_cartoon": "3D cartoon style, Pixar style, stylized 3D, cartoon render",
-};
-
 async function transformSingleImage(
   identityPhotoUrl: string,
-  lookingType: string,
-  visualStyle: string,
+  editStyle: EditStyle,
   falApiKey: string,
   userId?: string,
   identityPhotoId?: string
 ): Promise<TransformResult> {
   try {
-    const lookingPrompt = LOOKING_PROMPTS[lookingType];
-    const stylePrompt = VISUAL_STYLE_PROMPTS[visualStyle];
-
-    if (!lookingPrompt || !stylePrompt) {
-      return {
-        lookingType,
-        status: "failed",
-        error: "Invalid lookingType or visualStyle",
-      };
-    }
-
-    const combinedPrompt = `${lookingPrompt}, ${stylePrompt}`;
+    const { id: editStyleId, prompt } = editStyle;
 
     // Create transformation record if userId provided
     let transformationId: string | null = null;
@@ -72,9 +47,8 @@ async function transformSingleImage(
         .insert({
           user_id: userId,
           identity_photo_id: identityPhotoId,
-          looking_type: lookingType,
-          visual_style: visualStyle,
-          prompt: combinedPrompt,
+          edit_style_id: editStyleId,
+          prompt: prompt,
           status: "processing",
         })
         .select()
@@ -93,7 +67,7 @@ async function transformSingleImage(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        prompt: combinedPrompt,
+        prompt: prompt,
         image_urls: [identityPhotoUrl],
         num_images: 1,
         output_format: "jpeg",
@@ -103,7 +77,7 @@ async function transformSingleImage(
 
     if (!falResponse.ok) {
       const errorText = await falResponse.text();
-      console.error(`FAL API error for ${lookingType}:`, errorText);
+      console.error(`FAL API error for ${editStyleId}:`, errorText);
 
       // Update transformation status to failed
       if (transformationId && userId) {
@@ -121,7 +95,7 @@ async function transformSingleImage(
       }
 
       return {
-        lookingType,
+        editStyleId,
         status: "failed",
         error: errorText,
         transformationId: transformationId || undefined,
@@ -152,15 +126,15 @@ async function transformSingleImage(
     }
 
     return {
-      lookingType,
+      editStyleId,
       status: "completed",
       imageUrl: resultUrl,
       transformationId: transformationId || undefined,
     };
   } catch (error) {
-    console.error(`Error transforming ${lookingType}:`, error);
+    console.error(`Error transforming ${editStyleId}:`, error);
     return {
-      lookingType,
+      editStyleId,
       status: "failed",
       error: error instanceof Error ? error.message : "Unknown error",
     };
@@ -189,39 +163,37 @@ Deno.serve(async (req) => {
     // Parse request body
     const {
       identityPhotoUrl,
-      visualStyle = "realistic",
+      editStyles,
       userId,
       identityPhotoId,
-      lookingTypes,
     }: BatchTransformRequest = await req.json();
 
     // Validate required fields
-    if (!identityPhotoUrl) {
+    if (!identityPhotoUrl || !editStyles || editStyles.length === 0) {
       return new Response(
         JSON.stringify({
-          error: "Missing required field: identityPhotoUrl",
+          error: "Missing required fields: identityPhotoUrl, editStyles",
         }),
         {
           status: 400,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
         }
       );
     }
 
-    // Determine which looking types to generate
-    const typesToGenerate = lookingTypes || Object.keys(LOOKING_PROMPTS);
+    console.log(`Batch transforming ${editStyles.length} variations`);
 
-    console.log(`Batch transforming ${typesToGenerate.length} variations`);
-
-    // Transform all looking types sequentially
+    // Transform all edit styles sequentially
     const results: TransformResult[] = [];
 
-    for (const lookingType of typesToGenerate) {
-      console.log(`Processing ${lookingType}...`);
+    for (const editStyle of editStyles) {
+      console.log(`Processing ${editStyle.id}...`);
       const result = await transformSingleImage(
         identityPhotoUrl,
-        lookingType,
-        visualStyle,
+        editStyle,
         falApiKey,
         userId,
         identityPhotoId

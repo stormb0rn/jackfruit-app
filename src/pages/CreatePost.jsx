@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView, TextInput, StyleSheet } from 'react-native';
+import { useNavigate } from 'react-router-dom';
 import useAppStore from '../stores/appStore';
 import supabaseApi from '../services/supabaseApi';
 
@@ -7,7 +8,8 @@ function CreatePost() {
   const [caption, setCaption] = useState('');
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [posting, setPosting] = useState(false);
-  const { generatedPhotos, identityPhoto, currentUser, addPost, setCurrentStep } = useAppStore();
+  const navigate = useNavigate();
+  const { generatedPhotos, identityPhoto, currentUser, addPost } = useAppStore();
 
   const availablePhotos = [
     ...(identityPhoto ? [{ ...identityPhoto, type: 'identity' }] : []),
@@ -51,7 +53,7 @@ function CreatePost() {
       addPost(newPost);
       setSelectedPhotos([]);
       setCaption('');
-      setCurrentStep('feed');
+      navigate('/feed');
 
       console.log('Post created successfully');
     } catch (error) {
@@ -66,7 +68,7 @@ function CreatePost() {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setCurrentStep('templates')} style={styles.backButton}>
+          <TouchableOpacity onPress={() => navigate('/templates')} style={styles.backButton}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Create Your Post</Text>

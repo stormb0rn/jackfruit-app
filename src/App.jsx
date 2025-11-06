@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAppStore from './stores/appStore';
+import Landing from './pages/Landing';
 import IdentityUpload from './pages/IdentityUpload';
 import EditLook from './pages/EditLook';
 import Templates from './pages/Templates';
@@ -12,41 +13,23 @@ import ConfigAdmin from './pages/ConfigAdmin';
 import MobileFrameWrapper from './components/MobileFrameWrapper';
 import settingsService from './services/settingsService';
 
-function MainApp() {
-  const currentStep = useAppStore((state) => state.currentStep);
-
-  const renderPage = () => {
-    switch (currentStep) {
-      case 'upload':
-        return <IdentityUpload />;
-      case 'edit-look':
-        return <EditLook />;
-      case 'templates':
-        return <Templates />;
-      case 'create-post':
-        return <CreatePost />;
-      case 'feed':
-        return <Feed />;
-      case 'profile':
-        return <Profile />;
-      default:
-        return <IdentityUpload />;
-    }
-  };
-
-  return (
-    <View style={styles.app}>
-      {renderPage()}
-    </View>
-  );
-}
-
 function App() {
   const setCacheMode = useAppStore((state) => state.setCacheMode);
+  const loadConfigFromSupabase = useAppStore((state) => state.loadConfigFromSupabase);
 
   useEffect(() => {
-    // Fetch global cache mode on app startup
-    const fetchGlobalCacheMode = async () => {
+    // Load configuration from Supabase on app startup
+    const initializeApp = async () => {
+      try {
+        // Load prompt configuration from Supabase
+        console.log('Loading configuration from Supabase...');
+        await loadConfigFromSupabase();
+        console.log('Configuration loaded successfully');
+      } catch (error) {
+        console.error('Failed to load configuration:', error);
+      }
+
+      // Fetch global cache mode
       try {
         const cacheMode = await settingsService.getGlobalCacheMode();
         console.log('Initial global cache mode:', cacheMode);
@@ -56,7 +39,7 @@ function App() {
       }
     };
 
-    fetchGlobalCacheMode();
+    initializeApp();
 
     // Subscribe to real-time cache mode changes
     const subscription = settingsService.subscribeToCacheModeChanges((newCacheMode) => {
@@ -68,13 +51,18 @@ function App() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [setCacheMode]);
+  }, [setCacheMode, loadConfigFromSupabase]);
 
   return (
     <BrowserRouter>
       <MobileFrameWrapper>
         <Routes>
-          <Route path="/" element={<MainApp />} />
+          <Route path="/" element={<Navigate to="/landing" replace />} />
+          <Route path="/landing" element={
+            <View style={styles.app}>
+              <Landing />
+            </View>
+          } />
           <Route path="/upload" element={
             <View style={styles.app}>
               <IdentityUpload />

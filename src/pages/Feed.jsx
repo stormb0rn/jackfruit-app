@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { useNavigate } from 'react-router-dom';
 import useAppStore from '../stores/appStore';
 
 function Feed() {
-  const { posts, setCurrentStep } = useAppStore();
+  const navigate = useNavigate();
+  const { posts } = useAppStore();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -11,10 +13,10 @@ function Feed() {
         <View style={styles.header}>
           <Text style={styles.title}>Feed</Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity onPress={() => setCurrentStep('profile')} style={styles.profileButton}>
+            <TouchableOpacity onPress={() => navigate('/profile')} style={styles.profileButton}>
               <Text style={styles.profileButtonText}>👤 Profile</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setCurrentStep('upload')} style={styles.createButton}>
+            <TouchableOpacity onPress={() => navigate('/upload')} style={styles.createButton}>
               <Text style={styles.createButtonText}>+ Create</Text>
             </TouchableOpacity>
           </View>
@@ -25,7 +27,7 @@ function Feed() {
             <Text style={styles.emptyIcon}>📱</Text>
             <Text style={styles.emptyTitle}>No posts yet</Text>
             <Text style={styles.emptyText}>Create your first transformation and share it</Text>
-            <TouchableOpacity onPress={() => setCurrentStep('upload')} style={styles.emptyButton}>
+            <TouchableOpacity onPress={() => navigate('/upload')} style={styles.emptyButton}>
               <Text style={styles.emptyButtonText}>Create First Post</Text>
             </TouchableOpacity>
           </View>

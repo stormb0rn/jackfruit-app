@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions, Platform } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, useWindowDimensions, Platform, TextInput } from 'react-native';
+import { useNavigate } from 'react-router-dom';
 import useAppStore from '../stores/appStore';
 import { configLoader } from '../utils/configLoader';
 import supabaseApi from '../services/supabaseApi';
 import cacheService from '../services/cacheService';
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // Icon mapping for looking options
 const iconMap = {
@@ -18,10 +17,11 @@ const iconMap = {
 };
 
 function EditLook() {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const navigate = useNavigate();
   const {
     identityPhoto,
     setSelectedTransformation,
-    setCurrentStep,
     cacheMode,
     selectedTestImageId,
     cachedGenerations,
@@ -31,15 +31,18 @@ function EditLook() {
   const [previewStates, setPreviewStates] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [isGeneratingCustom, setIsGeneratingCustom] = useState(false);
   const scrollViewRef = useRef(null);
 
   useEffect(() => {
-    const lookingOptions = configLoader.getLookingOptions();
-    const formattedOptions = lookingOptions.map(option => ({
+    const editOptions = configLoader.getEditOptions();
+    const formattedOptions = editOptions.map(option => ({
       id: option.id,
       name: option.name,
       icon: iconMap[option.id] || '🎭',
-      description: option.prompt_modifier,
+      description: option.prompt,
+      prompt: option.prompt,
       config: option
     }));
     setTransformationOptions(formattedOptions);
@@ -79,7 +82,7 @@ function EditLook() {
 
       for (const option of transformationOptions) {
         try {
-          const cachedUrl = await cacheService.getRandomCachedResult('looking', option.id);
+          const cachedUrl = await cacheService.getRandomCachedResult('edit_styles', option.id);
           if (cachedUrl) {
             newPreviewStates[option.id] = {
               loading: false,
@@ -119,7 +122,7 @@ function EditLook() {
 
     if (!identityPhoto) {
       alert('Please upload an identity photo first');
-      setCurrentStep('upload');
+      navigate('/upload');
       return;
     }
 
@@ -128,13 +131,18 @@ function EditLook() {
     try {
       console.log('Starting batch transformation...');
       console.log('Identity photo URL:', identityPhoto.url);
-      console.log('Looking types:', transformationOptions.map(opt => opt.id));
+      console.log('Edit styles:', transformationOptions.map(opt => opt.id));
+
+      // Prepare edit styles array with id and prompt
+      const editStyles = transformationOptions.map(opt => ({
+        id: opt.id,
+        prompt: opt.prompt
+      }));
 
       // Call Supabase edge function for batch transformation
       const result = await supabaseApi.batchTransform(
         identityPhoto.url,
-        'realistic',
-        transformationOptions.map(opt => opt.id)
+        editStyles
       );
 
       console.log('Batch transform result:', result);
@@ -143,7 +151,7 @@ function EditLook() {
         // Update preview states with results
         const newPreviewStates = {};
         result.results.forEach(transformResult => {
-          newPreviewStates[transformResult.lookingType] = {
+          newPreviewStates[transformResult.editStyleId] = {
             loading: false,
             imageUrl: transformResult.imageUrl || null,
             error: transformResult.status === 'failed' ? (transformResult.error || 'Generation failed') : null
@@ -192,6 +200,74 @@ function EditLook() {
     setIsGenerating(false);
   };
 
+  const handleGenerateCustomLook = async () => {
+    if (!customPrompt.trim()) {
+      alert('Please enter a description for your custom look');
+      return;
+    }
+
+    if (!identityPhoto) {
+      alert('Please upload an identity photo first');
+      navigate('/upload');
+      return;
+    }
+
+    setIsGeneratingCustom(true);
+
+    try {
+      console.log('Generating custom look with prompt:', customPrompt);
+
+      // Create a custom transformation option
+      const customOption = {
+        id: 'custom_' + Date.now(),
+        name: 'Custom Look',
+        icon: '✨',
+        description: customPrompt,
+        prompt: customPrompt,
+        config: { id: 'custom', name: 'Custom', prompt: customPrompt }
+      };
+
+      // Call the transform API
+      const result = await supabaseApi.transformImage(
+        identityPhoto.url,
+        customPrompt
+      );
+
+      if (result.success && result.imageUrl) {
+        // Add the custom option to transformationOptions
+        setTransformationOptions(prev => [...prev, customOption]);
+
+        // Add the preview state
+        setPreviewStates(prev => ({
+          ...prev,
+          [customOption.id]: {
+            loading: false,
+            imageUrl: result.imageUrl,
+            error: null
+          }
+        }));
+
+        // Scroll to the new custom look
+        setTimeout(() => {
+          setCurrentIndex(transformationOptions.length);
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollLeft = screenWidth * transformationOptions.length;
+          }
+        }, 100);
+
+        // Clear the prompt
+        setCustomPrompt('');
+      } else {
+        alert('Failed to generate custom look: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error generating custom look:', error);
+      alert('Failed to generate custom look: ' + error.message);
+    }
+
+    setIsGeneratingCustom(false);
+  };
+
   const handleScroll = (event) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
     const index = Math.round(scrollPosition / screenWidth);
@@ -200,7 +276,7 @@ function EditLook() {
 
   const handleSelectTransformation = (transformationType) => {
     setSelectedTransformation(transformationType);
-    setCurrentStep('templates');
+    navigate('/templates');
   };
 
   const handleSelectCurrentTransformation = () => {
@@ -222,8 +298,8 @@ function EditLook() {
     const { loading, imageUrl, error } = state;
 
     return (
-      <View style={styles.carouselItemContainer}>
-        <View style={styles.carouselCard}>
+      <View style={[styles.carouselItemContainer, { width: screenWidth }]}>
+        <View style={[styles.carouselCard, { width: screenWidth - 80 }]}>
           {loading ? (
             <View style={styles.carouselLoadingContainer}>
               {identityPhoto && (
@@ -292,13 +368,13 @@ function EditLook() {
 
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => setCurrentStep('upload')}
+          onPress={() => navigate('/upload')}
           style={styles.backButton}
           activeOpacity={0.7}
         >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Choose Style</Text>
+        <Text style={styles.title}>SELECT YOUR STYLE</Text>
       </View>
 
       <View style={styles.carouselSection}>
@@ -340,7 +416,7 @@ function EditLook() {
                   style={{
                     scrollSnapAlign: 'center',
                     flex: '0 0 100%',
-                    width: '100vw',
+                    width: `${screenWidth}px`,
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
@@ -365,8 +441,33 @@ function EditLook() {
         onPress={handleSelectCurrentTransformation}
         activeOpacity={0.8}
       >
-        <Text style={styles.selectButtonText}>SELECT</Text>
+        <Text style={styles.selectButtonText}>NEXT</Text>
       </TouchableOpacity>
+
+      {/* Edit prompt input - shows when at the last look */}
+      {currentIndex === transformationOptions.length - 1 && (
+        <View style={styles.editPromptContainer}>
+          <View style={styles.editPromptInputWrapper}>
+            <TextInput
+              style={styles.editPromptInput}
+              placeholder="Edit your look by describing..."
+              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              value={customPrompt}
+              onChangeText={setCustomPrompt}
+              onSubmitEditing={handleGenerateCustomLook}
+              returnKeyType="done"
+              editable={!isGeneratingCustom}
+            />
+            {isGeneratingCustom && (
+              <ActivityIndicator
+                size="small"
+                color="#ffffff"
+                style={styles.editPromptLoader}
+              />
+            )}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -382,7 +483,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    background: 'linear-gradient(180deg, rgba(194, 190, 255, 0) 0%, rgba(194, 190, 255, 0.76) 100%)',
+    background: 'linear-gradient(180deg, rgba(194, 190, 255, 0) 61.963%, rgba(194, 190, 255, 0.76) 100%)',
     pointerEvents: 'none',
     zIndex: 0,
   },
@@ -414,7 +515,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.select({
-      web: "'Helvetica Neue', 'Arial Black', sans-serif",
+      web: "'Telka Extended', sans-serif",
       default: 'System',
     }),
   },
@@ -428,14 +529,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   carouselItemContainer: {
-    width: screenWidth,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
   },
   carouselCard: {
-    width: screenWidth - 80,
-    height: screenHeight * 0.55,
+    aspectRatio: 9 / 16,
     borderRadius: 19,
     overflow: 'hidden',
     backgroundColor: '#1a1a1a',
@@ -548,18 +647,16 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   selectButton: {
-    backgroundColor: '#000000',
-    marginHorizontal: 116,
-    marginBottom: 50,
-    paddingVertical: 18,
+    position: 'absolute',
+    bottom: 95,
+    left: '50%',
+    marginLeft: -80.5,
+    width: 161,
+    height: 47,
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
     zIndex: 1,
     ...Platform.select({
       web: {
@@ -572,16 +669,51 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   selectButtonText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 2,
+    letterSpacing: 1,
     textTransform: 'uppercase',
-    lineHeight: 31.02,
+    lineHeight: 26,
     fontFamily: Platform.select({
-      web: "'Helvetica Neue', 'Arial Black', sans-serif",
+      web: "'Telka Extended', sans-serif",
       default: 'System',
     }),
+  },
+  editPromptContainer: {
+    position: 'absolute',
+    bottom: 95,
+    left: '50%',
+    marginLeft: -163.5,
+    width: 327,
+    zIndex: 2,
+  },
+  editPromptInputWrapper: {
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderRadius: 19,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    height: 47,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editPromptInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '400',
+    fontFamily: Platform.select({
+      web: "'Telka', sans-serif",
+      default: 'System',
+    }),
+    ...Platform.select({
+      web: {
+        outline: 'none',
+      },
+    }),
+  },
+  editPromptLoader: {
+    marginLeft: 12,
   },
 });
 

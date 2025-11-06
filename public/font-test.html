@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Font Test</title>
+  <style>
+    @font-face {
+      font-family: 'Telka Extended';
+      src: url('/fonts/Telka-ExtendedSuper.otf') format('opentype');
+      font-weight: 900;
+      font-display: block;
+    }
+
+    body {
+      margin: 0;
+      padding: 40px;
+      background: #000;
+      font-family: Arial, sans-serif;
+    }
+
+    .arial {
+      font-size: 32px;
+      color: #fff;
+      margin-bottom: 40px;
+    }
+
+    .telka {
+      font-size: 32px;
+      color: #fff;
+      font-family: 'Telka Extended', Arial, sans-serif;
+      font-weight: 900;
+    }
+
+    .info {
+      color: #0f0;
+      margin-top: 40px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="arial">This is Arial: YOU CAN ONLY LIVE MANY LIVES</div>
+  <div class="telka">This is Telka: YOU CAN ONLY LIVE MANY LIVES</div>
+  <div class="info" id="info">Loading fonts...</div>
+
+  <script>
+    document.fonts.ready.then(() => {
+      const telkaEl = document.querySelector('.telka');
+      const computed = window.getComputedStyle(telkaEl);
+      document.getElementById('info').textContent = 'Font loaded: ' + computed.fontFamily + ' | Weight: ' + computed.fontWeight;
+    });
+  </script>
+</body>
+</html>

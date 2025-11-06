@@ -1,58 +1,69 @@
 {
-  "config_name": "AI Character Generation",
-  "description": "Configuration for generating different AI character variations",
-  "looking": {
+  "config_name": "Edit Look Options",
+  "description": "Configuration for different edit look variations",
+  "edit_options": {
     "better_looking": {
       "id": "better_looking",
       "name": "Better-Looking",
-      "prompt_modifier": "better-looking, enhanced features, more attractive, refined appearance"
+      "prompt": "better-looking, enhanced features, more attractive, refined appearance, photorealistic, realistic lighting, high detail, lifelike",
+      "enabled": true,
+      "order": 0
     },
     "japanese_looking": {
       "id": "japanese_looking",
       "name": "Japanese-Looking",
-      "prompt_modifier": "Japanese appearance, East Asian features, Japanese ethnicity"
+      "prompt": "Japanese appearance, East Asian features, Japanese ethnicity, photorealistic, realistic lighting, high detail, lifelike",
+      "enabled": true,
+      "order": 1
     },
     "more_male": {
       "id": "more_male",
       "name": "More Male",
-      "prompt_modifier": "more masculine, stronger male features, masculine appearance"
+      "prompt": "more masculine, stronger male features, masculine appearance, photorealistic, realistic lighting, high detail, lifelike",
+      "enabled": true,
+      "order": 2
     },
     "more_female": {
       "id": "more_female",
       "name": "More Female",
-      "prompt_modifier": "more feminine, softer female features, feminine appearance"
+      "prompt": "more feminine, softer female features, feminine appearance, photorealistic, realistic lighting, high detail, lifelike",
+      "enabled": true,
+      "order": 3
     },
     "white_skinned": {
       "id": "white_skinned",
       "name": "White-Skinned",
-      "prompt_modifier": "white skin tone, fair skin, light complexion"
+      "prompt": "white skin tone, fair skin, light complexion, photorealistic, realistic lighting, high detail, lifelike",
+      "enabled": true,
+      "order": 4
     },
     "dark_skinned": {
       "id": "dark_skinned",
       "name": "Dark-Skinned",
-      "prompt_modifier": "dark skin tone, deep complexion, darker skin"
-    }
-  },
-  "visual_style": {
-    "realistic": {
-      "id": "realistic",
-      "name": "Realistic",
-      "prompt_modifier": "photorealistic, realistic lighting, high detail, lifelike"
+      "prompt": "dark skin tone, deep complexion, darker skin, photorealistic, realistic lighting, high detail, lifelike",
+      "enabled": true,
+      "order": 5
     },
-    "game_render_realistic": {
-      "id": "game_render_realistic",
-      "name": "Game Render Realistic",
-      "prompt_modifier": "game engine render, Unreal Engine style, realistic game graphics, 3D game character"
+    "game_render": {
+      "id": "game_render",
+      "name": "Game Render",
+      "prompt": "game engine render, Unreal Engine style, realistic game graphics, 3D game character",
+      "enabled": true,
+      "order": 6
     },
     "2d_cartoon": {
       "id": "2d_cartoon",
       "name": "2D Cartoon",
-      "prompt_modifier": "2D cartoon style, animated illustration, cartoon art, flat shading"
+      "prompt": "2D cartoon style, animated illustration, cartoon art, flat shading",
+      "enabled": true,
+      "order": 7
     },
     "3d_cartoon": {
       "id": "3d_cartoon",
       "name": "3D Cartoon",
-      "prompt_modifier": "3D cartoon style, Pixar style, stylized 3D, cartoon render"
+      "prompt": "3D cartoon style, Pixar style, stylized 3D, cartoon render",
+      "enabled": true,
+      "order": 8
     }
   }
 }

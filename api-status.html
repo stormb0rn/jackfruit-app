@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API 状态测试面板</title>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+      background: #0a0a0a;
+      color: #fff;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #4a90e2;
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+    h2 {
+      color: #6aa3e8;
+      margin: 20px 0 10px 0;
+      font-size: 20px;
+    }
+    h3 {
+      color: #8ab4ea;
+      margin: 15px 0 10px 0;
+      font-size: 16px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 12px 24px;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #357abd;
+      transform: translateY(-1px);
+    }
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
+    }
+    button.danger {
+      background: #f44336;
+    }
+    button.danger:hover {
+      background: #d32f2f;
+    }
+    button.success {
+      background: #4caf50;
+    }
+    button.success:hover {
+      background: #388e3c;
+    }
+    .section {
+      margin: 15px 0;
+      padding: 20px;
+      background: #1a1a1a;
+      border-radius: 8px;
+      border: 1px solid #333;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    .card {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 6px;
+      border-left: 3px solid #4a90e2;
+    }
+    .card.success {
+      border-left-color: #4caf50;
+    }
+    .card.error {
+      border-left-color: #f44336;
+    }
+    .card.warning {
+      border-left-color: #ff9800;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    .status.success {
+      background: #4caf50;
+      color: white;
+    }
+    .status.error {
+      background: #f44336;
+      color: white;
+    }
+    .status.pending {
+      background: #ff9800;
+      color: white;
+    }
+    .status.idle {
+      background: #666;
+      color: white;
+    }
+    .log {
+      background: #0a0a0a;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin: 10px 0;
+    }
+    .log-line {
+      margin: 5px 0;
+      padding: 5px;
+      border-radius: 3px;
+    }
+    .log-line.info {
+      color: #4a90e2;
+    }
+    .log-line.success {
+      color: #4caf50;
+    }
+    .log-line.error {
+      color: #f44336;
+    }
+    .log-line.warning {
+      color: #ff9800;
+    }
+    pre {
+      background: #0a0a0a;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 12px;
+      margin: 10px 0;
+      border: 1px solid #333;
+    }
+    .item {
+      margin: 10px 0;
+      padding: 12px;
+      background: #2a2a2a;
+      border-radius: 6px;
+      border-left: 3px solid #4a90e2;
+    }
+    .item.enabled {
+      border-left-color: #4caf50;
+    }
+    .item.disabled {
+      border-left-color: #666;
+      opacity: 0.6;
+    }
+    .item strong {
+      color: #4a90e2;
+      font-size: 14px;
+    }
+    .item small {
+      color: #999;
+      display: block;
+      margin-top: 5px;
+      font-size: 12px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+    .badge.enabled {
+      background: #4caf50;
+      color: white;
+    }
+    .badge.disabled {
+      background: #666;
+      color: white;
+    }
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin: 15px 0;
+    }
+    .stat {
+      background: #2a2a2a;
+      padding: 15px 20px;
+      border-radius: 6px;
+      text-align: center;
+      flex: 1;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #4a90e2;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+      text-transform: uppercase;
+    }
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #333;
+      border-top-color: #4a90e2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 API 状态测试面板</h1>
+
+    <div class="toolbar">
+      <button onclick="runAllTests()" id="run-all-btn">
+        🚀 运行所有测试
+      </button>
+      <button onclick="checkDatabase()" class="success">
+        🗄️ 检查数据库
+      </button>
+      <button onclick="testConfigAPI()">
+        📡 测试配置 API
+      </button>
+      <button onclick="checkStore()">
+        📦 检查 Store 状态
+      </button>
+      <button onclick="initializeDefaults()" class="warning">
+        🔄 初始化默认配置
+      </button>
+      <button onclick="clearLogs()" class="danger">
+        🗑️ 清空日志
+      </button>
+    </div>
+
+    <!-- API Status Overview -->
+    <div class="section">
+      <h2>📊 API 状态概览</h2>
+      <div class="grid">
+        <div class="card" id="db-status">
+          <h3>数据库连接 <span class="status idle">待测试</span></h3>
+          <div id="db-status-content">未测试</div>
+        </div>
+        <div class="card" id="api-status">
+          <h3>配置 API <span class="status idle">待测试</span></h3>
+          <div id="api-status-content">未测试</div>
+        </div>
+        <div class="card" id="store-status">
+          <h3>Zustand Store <span class="status idle">待测试</span></h3>
+          <div id="store-status-content">未测试</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="section">
+      <h2>📈 配置统计</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value" id="stat-edit-options">-</div>
+          <div class="stat-label">Edit Look Options</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-templates">-</div>
+          <div class="stat-label">Style Templates</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-db-records">-</div>
+          <div class="stat-label">DB Records</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="section">
+      <h2>📝 测试日志</h2>
+      <div class="log" id="log-output">
+        <div class="log-line info">准备就绪，点击"运行所有测试"开始...</div>
+      </div>
+    </div>
+
+    <!-- Edit Look Options -->
+    <div class="section">
+      <h2>📸 Edit Look Options <span id="edit-options-count"></span></h2>
+      <div id="edit-options-content">
+        <p style="color: #999;">未加载，请运行测试</p>
+      </div>
+    </div>
+
+    <!-- Style Templates -->
+    <div class="section">
+      <h2>🎨 Aesthetic Style Templates <span id="templates-count"></span></h2>
+      <div id="templates-content">
+        <p style="color: #999;">未加载，请运行测试</p>
+      </div>
+    </div>
+
+    <!-- Raw Data -->
+    <div class="section">
+      <h2>🔍 原始数据（JSON）</h2>
+      <h3>Looking Config</h3>
+      <pre id="raw-looking-data">未加载</pre>
+      <h3>Templates Config</h3>
+      <pre id="raw-templates-data">未加载</pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from './src/services/supabaseClient.js';
+    import { supabaseApi } from './src/services/supabaseApi.js';
+    import { configService } from './src/services/configService.js';
+    import useAppStore from './src/stores/appStore.js';
+
+    let logCount = 0;
+
+    function log(message, type = 'info') {
+      const logOutput = document.getElementById('log-output');
+      const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+      const timestamp = new Date().toLocaleTimeString();
+      logOutput.innerHTML += `<div class="log-line ${type}">[${timestamp}] ${icon} ${message}</div>`;
+      logOutput.scrollTop = logOutput.scrollHeight;
+      console.log(`[${type}] ${message}`);
+      logCount++;
+    }
+
+    function updateStatus(cardId, status, content) {
+      const card = document.getElementById(cardId);
+      const statusSpan = card.querySelector('.status');
+      statusSpan.className = `status ${status}`;
+      statusSpan.textContent = status === 'success' ? '正常' : status === 'error' ? '错误' : status === 'pending' ? '测试中' : '待测试';
+
+      const contentDiv = document.getElementById(`${cardId}-content`);
+      contentDiv.innerHTML = content;
+
+      if (status === 'success') {
+        card.classList.add('success');
+        card.classList.remove('error', 'warning');
+      } else if (status === 'error') {
+        card.classList.add('error');
+        card.classList.remove('success', 'warning');
+      }
+    }
+
+    window.clearLogs = function() {
+      document.getElementById('log-output').innerHTML = '<div class="log-line info">日志已清空</div>';
+      logCount = 0;
+    };
+
+    window.runAllTests = async function() {
+      const btn = document.getElementById('run-all-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span> 测试中...';
+
+      clearLogs();
+      log('开始运行所有测试...', 'info');
+
+      await checkDatabase();
+      await new Promise(r => setTimeout(r, 500));
+      await testConfigAPI();
+      await new Promise(r => setTimeout(r, 500));
+      await checkStore();
+
+      log('所有测试完成！', 'success');
+      btn.disabled = false;
+      btn.innerHTML = '🚀 运行所有测试';
+    };
+
+    window.checkDatabase = async function() {
+      log('========== 数据库检查 ==========', 'info');
+      updateStatus('db-status', 'pending', '检查中...');
+
+      try {
+        // Check table exists
+        log('检查 prompt_config 表...');
+        const { data: tableCheck, error: tableError } = await supabase
+          .from('prompt_config')
+          .select('count')
+          .limit(0);
+
+        if (tableError) {
+          log(`表访问错误: ${tableError.message}`, 'error');
+          updateStatus('db-status', 'error', `错误: ${tableError.message}`);
+          return;
+        }
+
+        log('✓ 表存在且可访问', 'success');
+
+        // Get all records
+        const { data: allRecords, error: queryError } = await supabase
+          .from('prompt_config')
+          .select('*');
+
+        if (queryError) {
+          log(`查询错误: ${queryError.message}`, 'error');
+          updateStatus('db-status', 'error', `错误: ${queryError.message}`);
+          return;
+        }
+
+        const recordCount = allRecords?.length || 0;
+        log(`找到 ${recordCount} 条记录`, recordCount > 0 ? 'success' : 'warning');
+        document.getElementById('stat-db-records').textContent = recordCount;
+
+        if (recordCount === 0) {
+          log('⚠️ 数据库为空，需要初始化', 'warning');
+          updateStatus('db-status', 'error', '数据库为空，请点击"初始化默认配置"');
+          return;
+        }
+
+        // Check specific configs
+        const lookingRecord = allRecords.find(r => r.config_type === 'looking');
+        const templatesRecord = allRecords.find(r => r.config_type === 'templates');
+
+        let statusHtml = `<div style="margin-top: 10px;">`;
+
+        if (lookingRecord) {
+          const editOptionsCount = Object.keys(lookingRecord.config_data?.edit_options || {}).length;
+          statusHtml += `<div>✅ Looking: ${editOptionsCount} 个选项</div>`;
+          log(`✓ Looking 配置: ${editOptionsCount} 个选项`, 'success');
+        } else {
+          statusHtml += `<div>❌ Looking: 不存在</div>`;
+          log('✗ Looking 配置不存在', 'error');
+        }
+
+        if (templatesRecord) {
+          const templatesCount = Object.keys(templatesRecord.config_data?.templates || {}).length;
+          statusHtml += `<div>✅ Templates: ${templatesCount} 个模板</div>`;
+          log(`✓ Templates 配置: ${templatesCount} 个模板`, 'success');
+        } else {
+          statusHtml += `<div>❌ Templates: 不存在</div>`;
+          log('✗ Templates 配置不存在', 'error');
+        }
+
+        statusHtml += `</div>`;
+
+        updateStatus('db-status', 'success', statusHtml);
+        log('数据库检查完成', 'success');
+
+      } catch (error) {
+        log(`数据库检查失败: ${error.message}`, 'error');
+        updateStatus('db-status', 'error', `错误: ${error.message}`);
+      }
+    };
+
+    window.testConfigAPI = async function() {
+      log('========== 配置 API 测试 ==========', 'info');
+      updateStatus('api-status', 'pending', '测试中...');
+
+      try {
+        // Test looking config
+        log('测试 getPromptConfig("looking")...');
+        const lookingConfig = await supabaseApi.getPromptConfig('looking');
+        const editOptions = lookingConfig.edit_options || {};
+        const editOptionsCount = Object.keys(editOptions).length;
+
+        log(`✓ 成功加载 ${editOptionsCount} 个 Edit Look 选项`, 'success');
+        document.getElementById('stat-edit-options').textContent = editOptionsCount;
+
+        // Check for realistic or style_id_001
+        const hasRealistic = !!editOptions.realistic;
+        const hasStyleId001 = !!editOptions.style_id_001;
+
+        if (hasRealistic) {
+          log('✓ 找到 realistic 配置！', 'success');
+        } else if (hasStyleId001) {
+          log('✓ 找到 style_id_001 配置', 'success');
+        } else {
+          log('⚠️ 未找到 realistic 或 style_id_001', 'warning');
+        }
+
+        // Display edit options
+        const sortedOptions = Object.values(editOptions).sort((a, b) => (a.order || 0) - (b.order || 0));
+        let html = '';
+        sortedOptions.forEach((option, index) => {
+          const enabledClass = option.enabled ? 'enabled' : 'disabled';
+          const enabledBadge = option.enabled ? '<span class="badge enabled">启用</span>' : '<span class="badge disabled">禁用</span>';
+          html += `
+            <div class="item ${enabledClass}">
+              <strong>${index + 1}. ${option.name}</strong>${enabledBadge}<br>
+              <small>ID: ${option.id}</small><br>
+              <small>Prompt: ${option.prompt}</small>
+            </div>
+          `;
+        });
+        document.getElementById('edit-options-content').innerHTML = html;
+        document.getElementById('edit-options-count').innerHTML = `<span class="status success">${editOptionsCount} 个</span>`;
+        document.getElementById('raw-looking-data').textContent = JSON.stringify(lookingConfig, null, 2);
+
+        // Test templates config
+        log('测试 getPromptConfig("templates")...');
+        const templatesConfig = await supabaseApi.getPromptConfig('templates');
+        const templates = templatesConfig.templates || {};
+        const templatesCount = Object.keys(templates).length;
+
+        log(`✓ 成功加载 ${templatesCount} 个模板`, 'success');
+        document.getElementById('stat-templates').textContent = templatesCount;
+
+        // Display templates
+        const sortedTemplates = Object.values(templates).sort((a, b) => (a.order || 0) - (b.order || 0));
+        html = '';
+        sortedTemplates.forEach((template, index) => {
+          html += `
+            <div class="item enabled">
+              <strong>${index + 1}. ${template.name}</strong><br>
+              <small>ID: ${template.id}</small><br>
+              <small>Image: ${template.image || 'N/A'}</small><br>
+              <small>Prompt: ${template.prompt}</small>
+            </div>
+          `;
+        });
+        document.getElementById('templates-content').innerHTML = html;
+        document.getElementById('templates-count').innerHTML = `<span class="status success">${templatesCount} 个</span>`;
+        document.getElementById('raw-templates-data').textContent = JSON.stringify(templatesConfig, null, 2);
+
+        updateStatus('api-status', 'success', `
+          <div style="margin-top: 10px;">
+            <div>✅ Edit Options: ${editOptionsCount}</div>
+            <div>✅ Templates: ${templatesCount}</div>
+          </div>
+        `);
+        log('配置 API 测试完成', 'success');
+
+      } catch (error) {
+        log(`配置 API 测试失败: ${error.message}`, 'error');
+        updateStatus('api-status', 'error', `错误: ${error.message}`);
+
+        // Show fallback data
+        log('⚠️ API 失败，显示 JSON fallback 数据', 'warning');
+        document.getElementById('edit-options-content').innerHTML = '<div class="card error">API 加载失败，请检查数据库配置</div>';
+        document.getElementById('templates-content').innerHTML = '<div class="card error">API 加载失败，请检查数据库配置</div>';
+      }
+    };
+
+    window.checkStore = async function() {
+      log('========== Zustand Store 检查 ==========', 'info');
+      updateStatus('store-status', 'pending', '检查中...');
+
+      try {
+        const state = useAppStore.getState();
+
+        log(`配置已加载: ${state.configLoaded}`, state.configLoaded ? 'success' : 'warning');
+
+        if (state.configError) {
+          log(`配置错误: ${state.configError}`, 'error');
+        }
+
+        const transformationPrompts = state.transformationPrompts;
+        const styleTemplates = state.styleTemplates;
+
+        if (transformationPrompts) {
+          const count = Object.keys(transformationPrompts).length;
+          log(`✓ Store 中有 ${count} 个 Edit Options`, 'success');
+        } else {
+          log('⚠️ Store 中没有 transformationPrompts', 'warning');
+        }
+
+        if (styleTemplates) {
+          const count = Object.keys(styleTemplates).length;
+          log(`✓ Store 中有 ${count} 个 Templates`, 'success');
+        } else {
+          log('⚠️ Store 中没有 styleTemplates', 'warning');
+        }
+
+        const statusHtml = `
+          <div style="margin-top: 10px;">
+            <div>${state.configLoaded ? '✅' : '❌'} 配置已加载: ${state.configLoaded}</div>
+            <div>${transformationPrompts ? '✅' : '❌'} Transformation Prompts: ${transformationPrompts ? Object.keys(transformationPrompts).length : 0}</div>
+            <div>${styleTemplates ? '✅' : '❌'} Style Templates: ${styleTemplates ? Object.keys(styleTemplates).length : 0}</div>
+            ${state.configError ? `<div>⚠️ 错误: ${state.configError}</div>` : ''}
+          </div>
+        `;
+
+        updateStatus('store-status', state.configLoaded && transformationPrompts && styleTemplates ? 'success' : 'error', statusHtml);
+        log('Store 检查完成', 'success');
+
+      } catch (error) {
+        log(`Store 检查失败: ${error.message}`, 'error');
+        updateStatus('store-status', 'error', `错误: ${error.message}`);
+      }
+    };
+
+    window.initializeDefaults = async function() {
+      log('========== 初始化默认配置 ==========', 'info');
+
+      const confirmed = confirm('确定要初始化默认配置吗？\n\n这将：\n1. 从 JSON 文件读取配置\n2. 写入到 Supabase 数据库\n3. 覆盖现有配置（如果存在）');
+
+      if (!confirmed) {
+        log('用户取消初始化', 'warning');
+        return;
+      }
+
+      try {
+        log('调用 configService.initializeDefaults()...');
+        await configService.initializeDefaults();
+        log('✅ 初始化成功！', 'success');
+
+        log('重新加载应用配置...');
+        const loadConfig = useAppStore.getState().loadConfigFromSupabase;
+        await loadConfig();
+        log('✅ 应用配置已刷新', 'success');
+
+        log('重新运行测试...', 'info');
+        setTimeout(() => {
+          runAllTests();
+        }, 1000);
+
+      } catch (error) {
+        log(`初始化失败: ${error.message}`, 'error');
+        alert(`初始化失败: ${error.message}`);
+      }
+    };
+
+    // Expose to window
+    window.log = log;
+    window.updateStatus = updateStatus;
+  </script>
+</body>
+</html>

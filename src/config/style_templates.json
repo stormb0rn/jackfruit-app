@@ -1,90 +1,104 @@
 {
-  "config_name": "Style Templates",
+  "config_name": "Aesthetic Templates",
   "description": "Configuration for different aesthetic style templates",
   "templates": {
     "camera_lens": {
       "id": "camera_lens",
       "name": "Camera Lens",
-      "image": "Camera Lens.jpg",
-      "prompt": "professional camera lens aesthetic, depth of field effect, bokeh background, sharp focus on subject, cinematic depth, DSLR quality, professional photography style, artistic blur"
+      "image": "anonymous/style-templates/camera-lens.jpg",
+      "prompt": "professional camera lens aesthetic, depth of field effect, bokeh background, sharp focus on subject, cinematic depth, DSLR quality, professional photography style, artistic blur",
+      "order": 0
     },
     "cinematic": {
       "id": "cinematic",
       "name": "Cinematic",
-      "image": "Cinematic.jpg",
-      "prompt": "cinematic look, film grain, moody lighting, dramatic atmosphere, movie poster style, Hollywood aesthetic, color graded, professional film quality"
+      "image": "anonymous/style-templates/cinematic.jpg",
+      "prompt": "cinematic look, film grain, moody lighting, dramatic atmosphere, movie poster style, Hollywood aesthetic, color graded, professional film quality",
+      "order": 1
     },
     "classy": {
       "id": "classy",
       "name": "Classy",
-      "image": "Classy.jpg",
-      "prompt": "classy and elegant aesthetic, sophisticated style, luxury fashion, refined appearance, high-end magazine quality, timeless elegance, polished look"
+      "image": "anonymous/style-templates/classy.jpg",
+      "prompt": "classy and elegant aesthetic, sophisticated style, luxury fashion, refined appearance, high-end magazine quality, timeless elegance, polished look",
+      "order": 2
     },
     "creative": {
       "id": "creative",
       "name": "Creative",
-      "image": "Creative.jpg",
-      "prompt": "creative artistic style, unique composition, artistic expression, innovative aesthetic, contemporary art influence, bold creative choices, artistic vision"
+      "image": "anonymous/style-templates/creative.jpg",
+      "prompt": "creative artistic style, unique composition, artistic expression, innovative aesthetic, contemporary art influence, bold creative choices, artistic vision",
+      "order": 3
     },
     "daily": {
       "id": "daily",
       "name": "Daily",
-      "image": "Daily.jpg",
-      "prompt": "casual daily life aesthetic, natural everyday look, candid style, relatable atmosphere, lifestyle photography, authentic moment, comfortable vibe"
+      "image": "anonymous/style-templates/daily.jpg",
+      "prompt": "casual daily life aesthetic, natural everyday look, candid style, relatable atmosphere, lifestyle photography, authentic moment, comfortable vibe",
+      "order": 4
     },
     "edgy": {
       "id": "edgy",
       "name": "Edgy",
-      "image": "Edgy.jpg",
-      "prompt": "edgy urban style, bold attitude, street fashion aesthetic, modern urban culture, confident look, contemporary edge, alternative style"
+      "image": "anonymous/style-templates/edgy.jpg",
+      "prompt": "edgy urban style, bold attitude, street fashion aesthetic, modern urban culture, confident look, contemporary edge, alternative style",
+      "order": 5
     },
     "editorial": {
       "id": "editorial",
       "name": "Editorial",
-      "image": "Editorial.jpg",
-      "prompt": "editorial fashion style, high fashion magazine quality, professional styling, Vogue aesthetic, runway inspired, model pose, fashion photography"
+      "image": "anonymous/style-templates/editorial.jpg",
+      "prompt": "editorial fashion style, high fashion magazine quality, professional styling, Vogue aesthetic, runway inspired, model pose, fashion photography",
+      "order": 6
     },
     "funny": {
       "id": "funny",
       "name": "Funny",
-      "image": "Funny.jpg",
-      "prompt": "fun and playful aesthetic, lighthearted mood, humorous style, entertaining vibe, cheerful atmosphere, joyful expression, comedic element"
+      "image": "anonymous/style-templates/funny.jpg",
+      "prompt": "fun and playful aesthetic, lighthearted mood, humorous style, entertaining vibe, cheerful atmosphere, joyful expression, comedic element",
+      "order": 7
     },
     "retro_vintage": {
       "id": "retro_vintage",
       "name": "Retro Vintage",
-      "image": "Retro Vintage.jpg",
-      "prompt": "retro vintage aesthetic, nostalgic film look, classic vintage style, old school photography, aged photo quality, vintage color grading, throwback vibe"
+      "image": "anonymous/style-templates/retro-vintage.jpg",
+      "prompt": "retro vintage aesthetic, nostalgic film look, classic vintage style, old school photography, aged photo quality, vintage color grading, throwback vibe",
+      "order": 8
     },
     "cool": {
       "id": "cool",
       "name": "The Cool One",
-      "image": "The Cool One.jpg",
-      "prompt": "cool and confident aesthetic, effortlessly stylish, modern cool vibe, trendsetter look, charismatic presence, contemporary cool style"
+      "image": "anonymous/style-templates/the-cool-one.jpg",
+      "prompt": "cool and confident aesthetic, effortlessly stylish, modern cool vibe, trendsetter look, charismatic presence, contemporary cool style",
+      "order": 9
     },
     "cute": {
       "id": "cute",
       "name": "The Cute One",
-      "image": "The Cute One.jpg",
-      "prompt": "cute and adorable aesthetic, sweet charming style, gentle soft look, endearing appeal, kawaii inspired, lovely atmosphere, innocent charm"
+      "image": "anonymous/style-templates/the-cute-one.jpg",
+      "prompt": "cute and adorable aesthetic, sweet charming style, gentle soft look, endearing appeal, kawaii inspired, lovely atmosphere, innocent charm",
+      "order": 10
     },
     "hot": {
       "id": "hot",
       "name": "The Hot One",
-      "image": "The Hot One.jpg",
-      "prompt": "hot and attractive aesthetic, glamorous look, alluring style, captivating presence, sultry atmosphere, stunning appearance, striking beauty"
+      "image": "anonymous/style-templates/the-hot-one.jpg",
+      "prompt": "hot and attractive aesthetic, glamorous look, alluring style, captivating presence, sultry atmosphere, stunning appearance, striking beauty",
+      "order": 11
     },
     "vintage": {
       "id": "vintage",
       "name": "Vintage",
-      "image": "Vintage.png",
-      "prompt": "vintage aesthetic, classic timeless style, antique photo look, sepia toned, old photograph quality, historical vibe, vintage charm"
+      "image": "anonymous/style-templates/vintage.png",
+      "prompt": "vintage aesthetic, classic timeless style, antique photo look, sepia toned, old photograph quality, historical vibe, vintage charm",
+      "order": 12
     },
     "y2k": {
       "id": "y2k",
       "name": "Y2K",
-      "image": "Y2K.jpg",
-      "prompt": "Y2K aesthetic, early 2000s style, millennium era fashion, nostalgic 2000s vibe, pop culture reference, cyber Y2K look, retro futuristic"
+      "image": "anonymous/style-templates/y2k.jpg",
+      "prompt": "Y2K aesthetic, early 2000s style, millennium era fashion, nostalgic 2000s vibe, pop culture reference, cyber Y2K look, retro futuristic",
+      "order": 13
     }
   }
 }

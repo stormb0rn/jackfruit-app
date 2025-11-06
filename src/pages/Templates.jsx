@@ -1,29 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Dimensions, Platform } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, useWindowDimensions, Platform } from 'react-native';
+import { useNavigate } from 'react-router-dom';
 import useAppStore from '../stores/appStore';
+import { supabase } from '../services/supabaseClient';
 import supabaseApi from '../services/supabaseApi';
 import cacheService from '../services/cacheService';
 import { configLoader } from '../utils/configLoader';
-import { styleTemplateImages } from '../assets/style-templates';
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 function Templates() {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(null);
+  const navigate = useNavigate();
   const {
     identityPhoto,
     selectedTransformation,
     setSelectedTemplate,
     addGeneratedPhoto,
-    setCurrentStep,
     cacheMode,
     selectedTestImageId,
     cachedGenerations,
     setCachedGenerations
   } = useAppStore();
+
+  // Get template image URL from relative path
+  const getTemplateImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+
+    const { data } = supabase.storage
+      .from('identity-photos')
+      .getPublicUrl(imagePath);
+
+    return data.publicUrl;
+  };
 
   useEffect(() => {
     loadTemplates();
@@ -41,10 +52,10 @@ function Templates() {
       // Load style templates from config
       const styleTemplates = configLoader.getStyleTemplates();
 
-      // Map templates to include imported image references
+      // Map templates to include image URLs from Supabase
       const templatesWithImages = styleTemplates.map(template => ({
         ...template,
-        thumbnail: styleTemplateImages[template.image]
+        thumbnail: getTemplateImageUrl(template.image)
       }));
 
       setTemplates(templatesWithImages);
@@ -79,6 +90,9 @@ function Templates() {
 
       let imageUrl;
 
+      // Build the complete prompt with edit style + template
+      const prompt = configLoader.buildCompletePrompt(selectedTransformation, template.id);
+
       // Check if cache mode is enabled - use random cached result (demo mode)
       if (cacheMode) {
         console.log('Cache mode ON - using random cached result for template:', template.id);
@@ -89,8 +103,8 @@ function Templates() {
           // Fall back to real API if no cached results
           const result = await supabaseApi.transformImage(
             identityPhoto.url,
-            selectedTransformation,
-            template.id
+            prompt,
+            selectedTransformation
           );
 
           if (result.success) {
@@ -102,15 +116,16 @@ function Templates() {
       } else {
         console.log('Cache mode OFF - calling real API with:', {
           photoUrl: identityPhoto.url,
-          transformation: selectedTransformation,
-          visualStyle: template.id
+          editStyleId: selectedTransformation,
+          templateId: template.id,
+          prompt: prompt
         });
 
         // Call Supabase edge function to transform image
         const result = await supabaseApi.transformImage(
           identityPhoto.url,
-          selectedTransformation,
-          template.id
+          prompt,
+          selectedTransformation
         );
 
         console.log('Transformation result:', result);
@@ -130,7 +145,7 @@ function Templates() {
           template: template.id,
           description: '',
         });
-        setCurrentStep('create-post');
+        navigate('/create-post');
       }
     } catch (error) {
       console.error('Generation failed:', error);
@@ -163,10 +178,10 @@ function Templates() {
       <View style={styles.gradientOverlay} />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setCurrentStep('edit-look')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigate('/edit-look')} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Select Template</Text>
+        <Text style={styles.title}>Select Aesthetic</Text>
       </View>
 
       <ScrollView
@@ -177,9 +192,9 @@ function Templates() {
         <View style={styles.gridContainer}>
           {/* Create your style card - first item */}
           <TouchableOpacity
-            style={[styles.gridCard, styles.createCard]}
+            style={[styles.gridCard, styles.createCard, { width: (screenWidth - 66 - 17) / 2 }]}
             activeOpacity={0.9}
-            onPress={() => setCurrentStep('upload')}
+            onPress={() => navigate('/upload')}
           >
             <View style={styles.createCardOverlay}>
               <Text style={styles.createCardText}>create your style</Text>
@@ -192,6 +207,7 @@ function Templates() {
               key={template.id}
               style={[
                 styles.gridCard,
+                { width: (screenWidth - 66 - 17) / 2 },
                 selectedIndex === index && styles.gridCardSelected
               ]}
               onPress={() => setSelectedIndex(index)}
@@ -305,7 +321,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   gridCard: {
-    width: (screenWidth - 66 - 17) / 2,
     height: 227,
     borderRadius: 16,
     overflow: 'hidden',

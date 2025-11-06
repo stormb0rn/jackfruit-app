@@ -1,41 +1,55 @@
 // Utility to load and manage transformation configuration
+// Now loads from Zustand store (which loads from Supabase with JSON fallback)
 
 import transformationConfig from '../config/transformation_prompts.json';
 import styleTemplatesConfig from '../config/style_templates.json';
+import useAppStore from '../stores/appStore';
+
+/**
+ * Get transformation prompts from store or fallback to JSON
+ * @returns {object} Transformation prompts object
+ */
+const getTransformationPrompts = () => {
+  const state = useAppStore.getState();
+  return state.transformationPrompts || transformationConfig.edit_options;
+};
+
+/**
+ * Get style templates from store or fallback to JSON
+ * @returns {object} Style templates object
+ */
+const getStyleTemplatesConfig = () => {
+  const state = useAppStore.getState();
+  return state.styleTemplates || styleTemplatesConfig.templates;
+};
 
 export const configLoader = {
   /**
-   * Get all looking options
-   * @returns {Array} Array of looking options
+   * Get all edit options (sorted by order)
+   * @returns {Array} Array of edit options sorted by order field
+   */
+  getEditOptions: () => {
+    const prompts = getTransformationPrompts();
+    const options = Object.values(prompts || {});
+    return options.sort((a, b) => (a.order || 0) - (b.order || 0));
+  },
+
+  /**
+   * Get all looking options (alias for getEditOptions, sorted by order)
+   * @returns {Array} Array of looking options sorted by order field
    */
   getLookingOptions: () => {
-    return Object.values(transformationConfig.looking || {});
+    return configLoader.getEditOptions();
   },
 
   /**
-   * Get all visual style options
-   * @returns {Array} Array of visual style options
+   * Get a specific edit option by ID
+   * @param {string} id - The edit option ID
+   * @returns {object|null} The edit option object or null
    */
-  getVisualStyleOptions: () => {
-    return Object.values(transformationConfig.visual_style || {});
-  },
-
-  /**
-   * Get a specific looking option by ID
-   * @param {string} id - The looking option ID
-   * @returns {object|null} The looking option object or null
-   */
-  getLookingById: (id) => {
-    return transformationConfig.looking?.[id] || null;
-  },
-
-  /**
-   * Get a specific visual style option by ID
-   * @param {string} id - The visual style option ID
-   * @returns {object|null} The visual style option object or null
-   */
-  getVisualStyleById: (id) => {
-    return transformationConfig.visual_style?.[id] || null;
+  getEditOptionById: (id) => {
+    const prompts = getTransformationPrompts();
+    return prompts?.[id] || null;
   },
 
   /**
@@ -43,32 +57,18 @@ export const configLoader = {
    * @returns {object} The full configuration object
    */
   getConfig: () => {
-    return transformationConfig;
+    const prompts = getTransformationPrompts();
+    return { edit_options: prompts };
   },
 
   /**
-   * Build a combined prompt from looking and visual style
-   * @param {string} lookingId - The looking option ID
-   * @param {string} visualStyleId - The visual style option ID
-   * @returns {string} Combined prompt string
-   */
-  buildPrompt: (lookingId, visualStyleId) => {
-    const looking = configLoader.getLookingById(lookingId);
-    const visualStyle = configLoader.getVisualStyleById(visualStyleId);
-
-    if (!looking || !visualStyle) {
-      throw new Error('Invalid looking or visual style ID');
-    }
-
-    return `${looking.prompt_modifier}, ${visualStyle.prompt_modifier}`;
-  },
-
-  /**
-   * Get all style templates
-   * @returns {Array} Array of style template options
+   * Get all style templates (sorted by order)
+   * @returns {Array} Array of style template options sorted by order field
    */
   getStyleTemplates: () => {
-    return Object.values(styleTemplatesConfig.templates || {});
+    const templates = getStyleTemplatesConfig();
+    const templatesList = Object.values(templates || {});
+    return templatesList.sort((a, b) => (a.order || 0) - (b.order || 0));
   },
 
   /**
@@ -77,29 +77,30 @@ export const configLoader = {
    * @returns {object|null} The style template object or null
    */
   getStyleTemplateById: (id) => {
-    return styleTemplatesConfig.templates?.[id] || null;
+    const templates = getStyleTemplatesConfig();
+    return templates?.[id] || null;
   },
 
   /**
-   * Build a complete prompt with looking, visual style, and style template
-   * @param {string} lookingId - The looking option ID
-   * @param {string} visualStyleId - The visual style option ID
-   * @param {string} styleTemplateId - The style template ID
+   * Build a complete prompt with edit style and style template
+   * @param {string} editStyleId - The edit style ID
+   * @param {string} styleTemplateId - The style template ID (optional)
    * @returns {string} Complete combined prompt string
    */
-  buildCompletePrompt: (lookingId, visualStyleId, styleTemplateId) => {
-    const looking = configLoader.getLookingById(lookingId);
-    const visualStyle = configLoader.getVisualStyleById(visualStyleId);
-    const styleTemplate = configLoader.getStyleTemplateById(styleTemplateId);
+  buildCompletePrompt: (editStyleId, styleTemplateId = null) => {
+    const editOption = configLoader.getEditOptionById(editStyleId);
 
-    if (!looking || !visualStyle) {
-      throw new Error('Invalid looking or visual style ID');
+    if (!editOption) {
+      throw new Error('Invalid edit style ID');
     }
 
-    let prompt = `${looking.prompt_modifier}, ${visualStyle.prompt_modifier}`;
+    let prompt = editOption.prompt;
 
-    if (styleTemplate) {
-      prompt += `, ${styleTemplate.prompt}`;
+    if (styleTemplateId) {
+      const styleTemplate = configLoader.getStyleTemplateById(styleTemplateId);
+      if (styleTemplate) {
+        prompt += `, ${styleTemplate.prompt}`;
+      }
     }
 
     return prompt;

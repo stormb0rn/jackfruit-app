@@ -6,8 +6,8 @@ const FAL_API_ENDPOINT = "https://fal.run/fal-ai/nano-banana/edit";
 
 interface TransformRequest {
   identityPhotoUrl: string;
-  lookingType: string;
-  visualStyle: string;
+  prompt: string;
+  editStyleId?: string;
   userId?: string;
   identityPhotoId?: string;
 }
@@ -21,23 +21,6 @@ interface FALResponse {
   }>;
   description?: string;
 }
-
-// Transformation prompt configuration
-const LOOKING_PROMPTS: Record<string, string> = {
-  better_looking: "better-looking, enhanced features, more attractive, refined appearance",
-  japanese_looking: "Japanese appearance, East Asian features, Japanese ethnicity",
-  more_male: "more masculine, stronger male features, masculine appearance",
-  more_female: "more feminine, softer female features, feminine appearance",
-  white_skinned: "white skin tone, fair skin, light complexion",
-  dark_skinned: "dark skin tone, deep complexion, darker skin",
-};
-
-const VISUAL_STYLE_PROMPTS: Record<string, string> = {
-  realistic: "photorealistic, realistic lighting, high detail, lifelike",
-  game_render_realistic: "game engine render, Unreal Engine style, realistic game graphics, 3D game character",
-  "2d_cartoon": "2D cartoon style, animated illustration, cartoon art, flat shading",
-  "3d_cartoon": "3D cartoon style, Pixar style, stylized 3D, cartoon render",
-};
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -61,44 +44,29 @@ Deno.serve(async (req) => {
     // Parse request body
     const {
       identityPhotoUrl,
-      lookingType,
-      visualStyle,
+      prompt,
+      editStyleId,
       userId,
       identityPhotoId,
     }: TransformRequest = await req.json();
 
     // Validate required fields
-    if (!identityPhotoUrl || !lookingType || !visualStyle) {
+    if (!identityPhotoUrl || !prompt) {
       return new Response(
         JSON.stringify({
-          error: "Missing required fields: identityPhotoUrl, lookingType, visualStyle",
+          error: "Missing required fields: identityPhotoUrl, prompt",
         }),
         {
           status: 400,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
         }
       );
     }
 
-    // Build prompt from configuration
-    const lookingPrompt = LOOKING_PROMPTS[lookingType];
-    const stylePrompt = VISUAL_STYLE_PROMPTS[visualStyle];
-
-    if (!lookingPrompt || !stylePrompt) {
-      return new Response(
-        JSON.stringify({
-          error: "Invalid lookingType or visualStyle",
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const combinedPrompt = `${lookingPrompt}, ${stylePrompt}`;
-
-    console.log("Transforming image with prompt:", combinedPrompt);
+    console.log("Transforming image with prompt:", prompt);
 
     // Create transformation record if userId provided
     let transformationId: string | null = null;
@@ -113,9 +81,8 @@ Deno.serve(async (req) => {
         .insert({
           user_id: userId,
           identity_photo_id: identityPhotoId,
-          looking_type: lookingType,
-          visual_style: visualStyle,
-          prompt: combinedPrompt,
+          edit_style_id: editStyleId,
+          prompt: prompt,
           status: "processing",
         })
         .select()
@@ -136,7 +103,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        prompt: combinedPrompt,
+        prompt: prompt,
         image_urls: [identityPhotoUrl],
         num_images: 1,
         output_format: "jpeg",
@@ -196,9 +163,8 @@ Deno.serve(async (req) => {
         transformationId,
         imageUrl: resultUrl,
         description: falResult.description,
-        lookingType,
-        visualStyle,
-        prompt: combinedPrompt,
+        editStyleId,
+        prompt: prompt,
       }),
       {
         headers: {

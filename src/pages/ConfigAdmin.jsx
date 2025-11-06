@@ -4,7 +4,6 @@ import transformationConfig from '../config/transformation_prompts.json';
 import styleTemplatesConfig from '../config/style_templates.json';
 import { supabase } from '../services/supabaseClient';
 import { falApi } from '../services/falApi';
-import { styleTemplateImages } from '../assets/style-templates/index.js';
 import cacheService from '../services/cacheService';
 import settingsService from '../services/settingsService';
 import configService from '../services/configService';
@@ -25,6 +24,17 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+// Get template image URL from relative path
+const getTemplateImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+
+  const { data } = supabase.storage
+    .from('identity-photos')
+    .getPublicUrl(imagePath);
+
+  return data.publicUrl;
+};
 
 // Sortable Item Component for drag-and-drop
 function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegenerate, isLoading, cachedResult }) {
@@ -52,9 +62,9 @@ function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegene
         <Text style={styles.dragHandleIcon}>⋮⋮</Text>
       </View>
 
-      {item.image && styleTemplateImages[item.image] && (
+      {item.image && (
         <Image
-          source={{ uri: styleTemplateImages[item.image] }}
+          source={{ uri: getTemplateImageUrl(item.image) }}
           style={isTemplate ? styles.templateImageVertical : styles.templateImage}
           resizeMode="cover"
         />
@@ -159,6 +169,10 @@ function ConfigAdmin() {
   // Selected Edit Look for template testing
   const [selectedEditLookId, setSelectedEditLookId] = useState(null);
   const [selectedEditLookUrl, setSelectedEditLookUrl] = useState(null);
+
+  // Template image upload state
+  const [isUploadingTemplateImage, setIsUploadingTemplateImage] = useState(false);
+  const [uploadedImagePreview, setUploadedImagePreview] = useState(null);
 
   // Test results - keyed by item id
   const [testResults, setTestResults] = useState({});
@@ -833,6 +847,63 @@ function ConfigAdmin() {
     }
   };
 
+  const handleTemplateImageUpload = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,image/webp';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // 文件大小验证（5MB 限制）
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File too large. Maximum size is 5MB.');
+        return;
+      }
+
+      setIsUploadingTemplateImage(true);
+
+      try {
+        // 生成文件名（小写，空格改为连字符）
+        const fileExt = file.name.split('.').pop().toLowerCase();
+        const baseName = file.name
+          .replace(/\.[^/.]+$/, '') // 移除扩展名
+          .toLowerCase()
+          .replace(/\s+/g, '-')      // 空格改为连字符
+          .replace(/[^a-z0-9-]/g, ''); // 移除特殊字符
+
+        const fileName = `${baseName}.${fileExt}`;
+        const filePath = `anonymous/style-templates/${fileName}`;
+
+        // 上传到 Supabase
+        const { data, error } = await supabase.storage
+          .from('identity-photos')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true // 允许覆盖同名文件
+          });
+
+        if (error) throw error;
+
+        // 更新表单 - 存储相对路径
+        setFormData({ ...formData, image: filePath });
+
+        // 生成预览
+        const reader = new FileReader();
+        reader.onload = (e) => setUploadedImagePreview(e.target.result);
+        reader.readAsDataURL(file);
+
+        console.log('✅ Image uploaded:', filePath);
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert(`Upload failed: ${error.message}`);
+      } finally {
+        setIsUploadingTemplateImage(false);
+      }
+    };
+    input.click();
+  };
+
   const renderEditLookSelector = () => {
     const cachedLooking = cachedResults.looking || {};
     const lookingItems = Object.entries(config.looking || {});
@@ -1135,13 +1206,40 @@ function ConfigAdmin() {
 
             {currentType === 'templates' && (
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Image File</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.image}
-                  onChangeText={(text) => setFormData({ ...formData, image: text })}
-                  placeholder="e.g., Cinematic.jpg"
-                />
+                <Text style={styles.label}>Template Image</Text>
+                <View style={styles.imageUploadContainer}>
+                  <TextInput
+                    style={[styles.input, styles.inputDisabled]}
+                    value={formData.image}
+                    placeholder="Upload an image..."
+                    editable={false}
+                  />
+                  <TouchableOpacity
+                    style={[styles.uploadButton, isUploadingTemplateImage && styles.disabledButton]}
+                    onPress={handleTemplateImageUpload}
+                    disabled={isUploadingTemplateImage}
+                    activeOpacity={0.7}
+                  >
+                    {isUploadingTemplateImage ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.uploadButtonText}>Upload</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* 图片预览 */}
+                {(formData.image || uploadedImagePreview) && (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image
+                      source={{
+                        uri: uploadedImagePreview || getTemplateImageUrl(formData.image)
+                      }}
+                      style={styles.imagePreview}
+                      resizeMode="cover"
+                    />
+                  </View>
+                )}
               </View>
             )}
 
@@ -1255,15 +1353,17 @@ const styles = StyleSheet.create({
   },
   uploadButton: {
     backgroundColor: '#0071e3',
-    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    minWidth: 100,
   },
   uploadButtonText: {
     color: 'white',
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   generateCacheButton: {
     backgroundColor: '#34c759',
@@ -1673,6 +1773,22 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  imageUploadContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  imagePreviewContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  imagePreview: {
+    width: 100,
+    height: 150,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e5e7',
   },
 });
 
