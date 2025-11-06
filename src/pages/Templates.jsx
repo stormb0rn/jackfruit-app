@@ -192,17 +192,33 @@ function Templates() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.gradientOverlay} />
-
-      <View style={styles.header}>
+    <>
+      {/* Fixed Header using div for true fixed positioning - outside View container */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 120,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingTop: 60,
+      }}>
         <TouchableOpacity onPress={() => navigate('/edit-look')} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Select Aesthetic</Text>
-      </View>
+      </div>
 
-      <ScrollView
+      <View style={styles.container}>
+        <View style={styles.gradientOverlay} />
+
+        <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
@@ -272,7 +288,8 @@ function Templates() {
           </View>
         </View>
       )}
-    </View>
+      </View>
+    </>
   );
 }
 
@@ -312,7 +329,6 @@ const styles = StyleSheet.create({
   backButton: {
     position: 'absolute',
     left: 20,
-    top: 60,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,

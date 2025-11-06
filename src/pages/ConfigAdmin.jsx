@@ -153,8 +153,7 @@ function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegene
 
 function ConfigAdmin() {
   const [config, setConfig] = useState({ looking: {}, templates: {} });
-  const [deletedItems, setDeletedItems] = useState({ looking: {}, templates: {} });
-  const [activeTab, setActiveTab] = useState('looking'); // 'looking', 'templates', 'deleted'
+  const [activeTab, setActiveTab] = useState('looking'); // 'looking', 'templates'
   const [modalVisible, setModalVisible] = useState(false);
   const [currentType, setCurrentType] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -234,24 +233,6 @@ function ConfigAdmin() {
       console.log('✅ Configuration loaded from Supabase');
     } catch (error) {
       console.error('Failed to load config from Supabase:', error);
-    }
-  };
-
-  const loadDeletedItems = async () => {
-    try {
-      const [lookingDeleted, templatesDeleted] = await Promise.all([
-        configService.getDeletedItems('looking'),
-        configService.getDeletedItems('templates')
-      ]);
-
-      setDeletedItems({
-        looking: lookingDeleted,
-        templates: templatesDeleted
-      });
-
-      console.log('✅ Loaded deleted items');
-    } catch (error) {
-      console.error('Failed to load deleted items:', error);
     }
   };
 
@@ -972,48 +953,6 @@ function ConfigAdmin() {
     );
   };
 
-  const renderDeletedSection = () => {
-    const allDeletedItems = [
-      ...Object.entries(deletedItems.looking || {}).map(([key, item]) => ({ key, item, type: 'looking' })),
-      ...Object.entries(deletedItems.templates || {}).map(([key, item]) => ({ key, item, type: 'templates' }))
-    ];
-
-    if (allDeletedItems.length === 0) {
-      return (
-        <View style={styles.section}>
-          <Text style={styles.emptyText}>No deleted items</Text>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Deleted Items</Text>
-        </View>
-
-        <View style={styles.itemsGrid}>
-          {allDeletedItems.map(({ key, item, type }) => (
-            <SortableItemCard
-              key={key}
-              id={key}
-              item={item}
-              type={type}
-              onDelete={() => {}}
-              onEdit={() => {}}
-              onToggle={() => {}}
-              onRegenerate={() => {}}
-              onRestore={restoreItem}
-              isLoading={false}
-              cachedResult={null}
-              isDeleted={true}
-            />
-          ))}
-        </View>
-      </View>
-    );
-  };
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.content}>
@@ -1157,25 +1096,17 @@ function ConfigAdmin() {
               Templates
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'deleted' && styles.tabButtonActive]}
-            onPress={() => {
-              setActiveTab('deleted');
-              loadDeletedItems();
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'deleted' && styles.tabButtonTextActive]}>
-              Deleted
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Render content based on active tab */}
         {activeTab === 'looking' && renderSection('looking', 'Edit Look')}
         {activeTab === 'looking' && renderEditLookSelector()}
-        {activeTab === 'templates' && renderSection('templates', 'Aesthetic Templates')}
-        {activeTab === 'deleted' && renderDeletedSection()}
+        {activeTab === 'templates' && (
+          <>
+            {renderEditLookSelector()}
+            {renderSection('templates', 'Aesthetic Templates')}
+          </>
+        )}
       </View>
 
       {/* Edit/Add Modal */}
