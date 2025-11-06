@@ -1,26 +1,32 @@
 // Utility to load and manage transformation configuration
-// Now loads from Zustand store (which loads from Supabase with JSON fallback)
+// Loads from Zustand store (which loads from Supabase only)
 
-import transformationConfig from '../config/transformation_prompts.json';
-import styleTemplatesConfig from '../config/style_templates.json';
 import useAppStore from '../stores/appStore';
 
 /**
- * Get transformation prompts from store or fallback to JSON
- * @returns {object} Transformation prompts object
+ * Get transformation prompts from store
+ * @returns {object} Transformation prompts object from Supabase
  */
 const getTransformationPrompts = () => {
   const state = useAppStore.getState();
-  return state.transformationPrompts || transformationConfig.edit_options;
+  if (!state.transformationPrompts) {
+    console.error('[configLoader] Transformation prompts not loaded from Supabase');
+    return {};
+  }
+  return state.transformationPrompts;
 };
 
 /**
- * Get style templates from store or fallback to JSON
- * @returns {object} Style templates object
+ * Get style templates from store
+ * @returns {object} Style templates object from Supabase
  */
 const getStyleTemplatesConfig = () => {
   const state = useAppStore.getState();
-  return state.styleTemplates || styleTemplatesConfig.templates;
+  if (!state.styleTemplates) {
+    console.error('[configLoader] Style templates not loaded from Supabase');
+    return {};
+  }
+  return state.styleTemplates;
 };
 
 export const configLoader = {

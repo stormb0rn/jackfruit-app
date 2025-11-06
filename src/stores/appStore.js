@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 import configService from '../services/configService';
-import transformationPromptsJson from '../config/transformation_prompts.json';
-import styleTemplatesJson from '../config/style_templates.json';
 
 const useAppStore = create((set) => ({
   // User identity
@@ -60,14 +58,13 @@ const useAppStore = create((set) => ({
   setCachedGenerations: (data) => set({ cachedGenerations: data }),
 
   // Configuration state
-  transformationPrompts: null, // Loaded from Supabase or JSON fallback
-  styleTemplates: null, // Loaded from Supabase or JSON fallback
+  transformationPrompts: null, // Loaded from Supabase
+  styleTemplates: null, // Loaded from Supabase
   configLoaded: false, // Track if config has been loaded
   configError: null, // Store any config loading errors
 
   /**
    * Load configuration from Supabase
-   * Falls back to JSON files if Supabase fails
    */
   loadConfigFromSupabase: async () => {
     try {
@@ -75,24 +72,12 @@ const useAppStore = create((set) => ({
       set({ configError: null });
 
       // Load transformation prompts (looking config)
-      let transformationPrompts = null;
-      try {
-        transformationPrompts = await configService.loadItems('looking');
-        console.log('[appStore] Loaded transformation prompts from Supabase');
-      } catch (error) {
-        console.warn('[appStore] Failed to load transformation prompts from Supabase, using JSON fallback:', error);
-        transformationPrompts = transformationPromptsJson.edit_options;
-      }
+      const transformationPrompts = await configService.loadItems('looking');
+      console.log('[appStore] Loaded transformation prompts from Supabase');
 
       // Load style templates (templates config)
-      let styleTemplates = null;
-      try {
-        styleTemplates = await configService.loadItems('templates');
-        console.log('[appStore] Loaded style templates from Supabase');
-      } catch (error) {
-        console.warn('[appStore] Failed to load style templates from Supabase, using JSON fallback:', error);
-        styleTemplates = styleTemplatesJson.templates;
-      }
+      const styleTemplates = await configService.loadItems('templates');
+      console.log('[appStore] Loaded style templates from Supabase');
 
       set({
         transformationPrompts,
@@ -102,12 +87,11 @@ const useAppStore = create((set) => ({
 
       console.log('[appStore] Configuration loaded successfully');
     } catch (error) {
-      console.error('[appStore] Error loading configuration:', error);
+      console.error('[appStore] Error loading configuration from Supabase:', error);
 
-      // Fallback to JSON files
       set({
-        transformationPrompts: transformationPromptsJson.edit_options,
-        styleTemplates: styleTemplatesJson.templates,
+        transformationPrompts: {},
+        styleTemplates: {},
         configLoaded: true,
         configError: error.message,
       });

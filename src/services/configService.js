@@ -1,6 +1,4 @@
 import { supabase } from './supabaseClient';
-import transformationConfig from '../config/transformation_prompts.json';
-import styleTemplatesConfig from '../config/style_templates.json';
 
 /**
  * Config Service
@@ -9,7 +7,6 @@ import styleTemplatesConfig from '../config/style_templates.json';
 const configService = {
   /**
    * Load all items of a category from Supabase
-   * Falls back to JSON files if Supabase is empty
    * @param {string} category - 'looking' or 'templates'
    * @returns {Promise<object>} Items as object keyed by id
    */
@@ -24,13 +21,13 @@ const configService = {
         .order('display_order', { ascending: true });
 
       if (error) {
-        console.error(`[configService] Failed to load ${category} items:`, error);
-        return configService.getDefaultItems(category);
+        console.error(`[configService] Failed to load ${category} items from Supabase:`, error);
+        throw error;
       }
 
       if (!data || data.length === 0) {
-        console.log(`[configService] No ${category} items in Supabase, using defaults`);
-        return configService.getDefaultItems(category);
+        console.warn(`[configService] No ${category} items found in Supabase`);
+        return {};
       }
 
       // Convert array to object keyed by id
@@ -43,7 +40,7 @@ const configService = {
       return itemsObj;
     } catch (error) {
       console.error(`[configService] Error loading ${category} items:`, error);
-      return configService.getDefaultItems(category);
+      throw error;
     }
   },
 
@@ -201,20 +198,6 @@ const configService = {
     }
   },
 
-  /**
-   * Get default configuration from JSON files
-   * @param {string} category - 'looking' or 'templates'
-   * @returns {object} Default items as object
-   */
-  getDefaultItems: (category) => {
-    if (category === 'looking') {
-      const editOptions = transformationConfig.edit_options || {};
-      return editOptions;
-    } else if (category === 'templates') {
-      return styleTemplatesConfig.templates || {};
-    }
-    return {};
-  }
 };
 
 export default configService;
