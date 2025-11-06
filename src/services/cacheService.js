@@ -92,6 +92,18 @@ export const cacheService = {
    * @returns {Promise<object>} - Saved data
    */
   saveCachedGeneration: async (data) => {
+    // Support both generatedImageUrl (string) for backward compatibility
+    // and generatedImageUrls (array) for new multi-image templates
+    const imageUrl = data.generatedImageUrls
+      ? data.generatedImageUrls  // New: array of URLs for templates
+      : data.generatedImageUrl   // Old: single URL string for backward compatibility
+      ? [data.generatedImageUrl] // Convert single to array format
+      : null;
+
+    if (!imageUrl || (Array.isArray(imageUrl) && imageUrl.length === 0)) {
+      throw new Error('No image URL(s) provided to save');
+    }
+
     const { error, data: savedData } = await supabase
       .from('cached_generations')
       .upsert({
@@ -100,7 +112,7 @@ export const cacheService = {
         prompt_type: data.promptType,
         prompt_id: data.promptId,
         prompt_text: data.promptText,
-        generated_image_url: data.generatedImageUrl
+        generated_image_url: imageUrl  // Now stores JSONB array
       }, {
         onConflict: 'test_image_id,prompt_type,prompt_id'
       })
@@ -141,11 +153,27 @@ export const cacheService = {
         grouped[promptType] = {};
       }
 
+      // Handle both old string format and new JSONB array format
+      const imageUrl = item.generated_image_url;
+      let generatedUrls = [];
+      let singleUrl = null;
+
+      if (Array.isArray(imageUrl)) {
+        // New format: JSONB array
+        generatedUrls = imageUrl;
+        singleUrl = imageUrl[0] || null;
+      } else if (typeof imageUrl === 'string') {
+        // Old format: single string (backward compatibility)
+        generatedUrls = [imageUrl];
+        singleUrl = imageUrl;
+      }
+
       grouped[promptType][item.prompt_id] = {
         id: item.id,
         promptId: item.prompt_id,
         promptText: item.prompt_text,
-        generatedUrl: item.generated_image_url,
+        generatedUrls: generatedUrls,        // New: array format
+        generatedUrl: singleUrl,              // Old: single string for backward compatibility
         createdAt: item.created_at,
         updatedAt: item.updated_at
       };
@@ -240,42 +268,65 @@ export const cacheService = {
    * @param {string} promptText - The template prompt text
    * @returns {Promise<object>} - Generated result
    */
-  regeneratePromptWithEditLook: async (editLookGeneratedUrl, testImageId, promptId, promptText) => {
+  regeneratePromptWithEditLook: async (editLookGeneratedUrl, testImageId, promptId, prompts) => {
     try {
-      console.log('Regenerating template prompt with Edit Look image as input:', {
+      // Support both single string (for backward compatibility) and array of prompts
+      const promptsArray = Array.isArray(prompts) ? prompts : [prompts];
+
+      console.log('Regenerating template prompts with Edit Look image as input:', {
         editLookGeneratedUrl,
-        promptText,
+        promptCount: promptsArray.length,
         promptId
       });
 
-      // Call FAL API using the Edit Look generated image
-      const falResult = await falApi.editImage(editLookGeneratedUrl, promptText, {
-        numImages: 1,
-        outputFormat: 'jpeg',
-        aspectRatio: '9:16',
-        syncMode: true
-      });
+      const generatedUrls = [];
 
-      if (falResult.images && falResult.images[0]) {
-        const generatedUrl = falResult.images[0].url;
+      // Generate image for each prompt
+      for (let i = 0; i < promptsArray.length; i++) {
+        const promptText = promptsArray[i];
 
-        // Save to cache in Supabase
-        await cacheService.saveCachedGeneration({
-          testImageId,
-          testImageUrl: editLookGeneratedUrl,
-          promptType: 'templates',
-          promptId,
-          promptText,
-          generatedImageUrl: generatedUrl
+        // Skip empty prompts
+        if (!promptText || promptText.trim() === '') {
+          console.log(`Skipping empty prompt at index ${i}`);
+          continue;
+        }
+
+        console.log(`Generating image ${i + 1}/${promptsArray.length} with prompt: ${promptText.substring(0, 50)}...`);
+
+        // Call FAL API using the Edit Look generated image
+        const falResult = await falApi.editImage(editLookGeneratedUrl, promptText, {
+          numImages: 1,
+          outputFormat: 'jpeg',
+          aspectRatio: '9:16',
+          syncMode: true
         });
 
-        return {
-          success: true,
-          generatedUrl
-        };
+        if (falResult.images && falResult.images[0]) {
+          generatedUrls.push(falResult.images[0].url);
+        } else {
+          throw new Error(`Failed to generate image for prompt ${i + 1}`);
+        }
       }
 
-      throw new Error('No image generated from FAL API');
+      if (generatedUrls.length === 0) {
+        throw new Error('No valid prompts to generate images from');
+      }
+
+      // Save to cache in Supabase with array of URLs
+      await cacheService.saveCachedGeneration({
+        testImageId,
+        testImageUrl: editLookGeneratedUrl,
+        promptType: 'templates',
+        promptId,
+        promptText: promptsArray.join(' | '), // Join for display
+        generatedImageUrls: generatedUrls // Pass array of URLs
+      });
+
+      return {
+        success: true,
+        generatedUrls,
+        generatedUrl: generatedUrls[0] // For backward compatibility
+      };
     } catch (error) {
       console.error('Regenerate with Edit Look failed:', error);
       throw error;
