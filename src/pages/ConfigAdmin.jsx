@@ -134,14 +134,33 @@ function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegene
         <Text style={styles.deletedBadge}>Deleted</Text>
       )}
 
-      {cachedResult && cachedResult.generatedUrl && !isDeleted && (
+      {cachedResult && !isDeleted && (
         <View style={styles.testResultInline}>
           <Text style={styles.testResultLabel}>Cached Result:</Text>
-          <Image
-            source={{ uri: cachedResult.generatedUrl }}
-            style={isTemplate ? styles.resultImageInlineVertical : styles.resultImageInline}
-            resizeMode="contain"
-          />
+
+          {isTemplate && cachedResult.generatedUrls && cachedResult.generatedUrls.length > 1 ? (
+            // Templates: display multiple images horizontally
+            <View style={styles.multiImagesContainer}>
+              {cachedResult.generatedUrls.map((url, index) => (
+                <View key={index} style={styles.imageWrapper}>
+                  <Image
+                    source={{ uri: url }}
+                    style={styles.resultImageMultiple}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.imageIndexLabel}>#{index + 1}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            // Edit Look or single image: display single image
+            <Image
+              source={{ uri: cachedResult.generatedUrl || cachedResult.generatedUrls?.[0] }}
+              style={isTemplate ? styles.resultImageInlineVertical : styles.resultImageInline}
+              resizeMode="contain"
+            />
+          )}
+
           <Text style={styles.cacheTimestamp}>
             Updated: {new Date(cachedResult.updatedAt).toLocaleString()}
           </Text>
@@ -731,31 +750,44 @@ function ConfigAdmin() {
     setTestingInProgress(prev => ({ ...prev, [itemKey]: true }));
 
     try {
-      const promptText = item.prompts?.[0] || '';
-
       if (type === 'templates') {
+        // Templates: use all 3 prompts
         if (!selectedEditLookUrl) {
           alert('Error\n\nPlease generate Edit Look cache first or select an Edit Look');
           setTestingInProgress(prev => ({ ...prev, [itemKey]: false }));
           return;
         }
 
-        console.log('📸 Regenerating template using Edit Look image:', {
+        // Filter out empty prompts
+        const validPrompts = (item.prompts || []).filter(p => p && p.trim() !== '');
+
+        if (validPrompts.length === 0) {
+          alert('Error\n\nPlease fill in at least one prompt');
+          setTestingInProgress(prev => ({ ...prev, [itemKey]: false }));
+          return;
+        }
+
+        console.log(`📸 Regenerating ${validPrompts.length} template image(s) using Edit Look image:`, {
           editLookUrl: selectedEditLookUrl,
-          editLookId: selectedEditLookId
+          editLookId: selectedEditLookId,
+          promptCount: validPrompts.length
         });
 
+        // Call with array of prompts - will generate image for each
         await cacheService.regeneratePromptWithEditLook(
           selectedEditLookUrl,
           selectedImage.id,
           id,
-          promptText
+          validPrompts  // Pass full array of prompts
         );
 
         await loadCachedResults(selectedImage.id);
 
-        alert('Success\n\nTemplate regenerated using Edit Look image!');
+        alert(`Success\n\n${validPrompts.length} template image(s) generated successfully!`);
       } else {
+        // Edit Look: use single prompt
+        const promptText = item.prompts?.[0] || '';
+
         await cacheService.regeneratePrompt(
           selectedImage.publicUrl,
           selectedImage.id,
@@ -1719,6 +1751,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
     alignSelf: 'center',
+  },
+  multiImagesContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    width: '100%',
+    marginVertical: 8,
+    justifyContent: 'space-between',
+  },
+  imageWrapper: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  resultImageMultiple: {
+    width: '100%',
+    aspectRatio: 9 / 16,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  imageIndexLabel: {
+    fontSize: 10,
+    color: '#888',
+    marginTop: 4,
+    fontWeight: '600',
   },
   cacheTimestamp: {
     fontSize: 11,
