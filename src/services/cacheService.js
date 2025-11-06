@@ -3,10 +3,11 @@ import { falApi } from './falApi';
 
 export const cacheService = {
   /**
-   * Batch generate all looks and templates for a test image
+   * Batch generate only edit styles for a test image
+   * Note: Template caching is now handled separately via regeneratePromptWithEditLook
    * @param {string} testImageUrl - URL of the test image
    * @param {string} testImageId - Unique ID for the test image
-   * @param {object} config - Configuration object with looking and templates
+   * @param {object} config - Configuration object with edit_options and templates
    * @param {function} onProgress - Progress callback (current, total, item)
    * @returns {Promise<object>} - Results summary
    */
@@ -18,32 +19,23 @@ export const cacheService = {
       completed: 0
     };
 
-    // Collect all prompts to generate
+    // Collect all prompts to generate - ONLY Edit Looks
     const prompts = [];
 
-    // Add all enabled looking prompts
-    Object.entries(config.looking || {}).forEach(([key, item]) => {
+    // Add all enabled edit style prompts (looking)
+    Object.entries(config.looking || config.edit_options || {}).forEach(([key, item]) => {
       if (item.enabled) {
         prompts.push({
           type: 'looking',
-          id: key,
-          name: item.name,
-          prompt: item.prompt_modifier
-        });
-      }
-    });
-
-    // Add all enabled template prompts
-    Object.entries(config.templates || {}).forEach(([key, item]) => {
-      if (item.enabled) {
-        prompts.push({
-          type: 'templates',
           id: key,
           name: item.name,
           prompt: item.prompt
         });
       }
     });
+
+    // NOTE: Template batch generation removed - templates are now generated individually
+    // based on a selected Edit Look image via regeneratePromptWithEditLook()
 
     results.total = prompts.length;
 
@@ -54,11 +46,11 @@ export const cacheService = {
           onProgress(results.completed, results.total, promptItem);
         }
 
-        // Call FAL API to generate image
+        // Call FAL API to generate image with 9:16 aspect ratio
         const falResult = await falApi.editImage(testImageUrl, promptItem.prompt, {
           numImages: 1,
           outputFormat: 'jpeg',
-          aspectRatio: '1:1',
+          aspectRatio: '9:16',
           syncMode: true
         });
 
@@ -141,7 +133,15 @@ export const cacheService = {
     };
 
     data.forEach(item => {
-      grouped[item.prompt_type][item.prompt_id] = {
+      const promptType = item.prompt_type;
+
+      // Ensure the type exists in grouped object
+      if (!grouped[promptType]) {
+        console.warn(`Unknown prompt_type: ${promptType}, creating new category`);
+        grouped[promptType] = {};
+      }
+
+      grouped[promptType][item.prompt_id] = {
         id: item.id,
         promptId: item.prompt_id,
         promptText: item.prompt_text,
@@ -184,18 +184,25 @@ export const cacheService = {
    * Regenerate a single prompt for a test image
    * @param {string} testImageUrl - URL of the test image
    * @param {string} testImageId - Test image ID
-   * @param {string} promptType - 'looking' or 'templates'
+   * @param {string} promptType - 'edit_styles' or 'templates'
    * @param {string} promptId - ID of the prompt
    * @param {string} promptText - The prompt text
    * @returns {Promise<object>} - Generated result
    */
   regeneratePrompt: async (testImageUrl, testImageId, promptType, promptId, promptText) => {
     try {
-      // Call FAL API to generate image
+      console.log('Regenerating prompt via direct FAL API call:', {
+        testImageUrl,
+        promptText,
+        promptId,
+        promptType
+      });
+
+      // Call FAL API directly to generate image with 9:16 aspect ratio
       const falResult = await falApi.editImage(testImageUrl, promptText, {
         numImages: 1,
         outputFormat: 'jpeg',
-        aspectRatio: '1:1',
+        aspectRatio: '9:16',
         syncMode: true
       });
 
@@ -218,9 +225,59 @@ export const cacheService = {
         };
       }
 
-      throw new Error('No image generated');
+      throw new Error('No image generated from FAL API');
     } catch (error) {
       console.error('Regenerate failed:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Regenerate a template prompt using a previously generated Edit Look image as input
+   * @param {string} editLookGeneratedUrl - URL of the generated Edit Look image
+   * @param {string} testImageId - Test image ID (for cache storage)
+   * @param {string} promptId - ID of the template prompt
+   * @param {string} promptText - The template prompt text
+   * @returns {Promise<object>} - Generated result
+   */
+  regeneratePromptWithEditLook: async (editLookGeneratedUrl, testImageId, promptId, promptText) => {
+    try {
+      console.log('Regenerating template prompt with Edit Look image as input:', {
+        editLookGeneratedUrl,
+        promptText,
+        promptId
+      });
+
+      // Call FAL API using the Edit Look generated image
+      const falResult = await falApi.editImage(editLookGeneratedUrl, promptText, {
+        numImages: 1,
+        outputFormat: 'jpeg',
+        aspectRatio: '9:16',
+        syncMode: true
+      });
+
+      if (falResult.images && falResult.images[0]) {
+        const generatedUrl = falResult.images[0].url;
+
+        // Save to cache in Supabase
+        await cacheService.saveCachedGeneration({
+          testImageId,
+          testImageUrl: editLookGeneratedUrl,
+          promptType: 'templates',
+          promptId,
+          promptText,
+          generatedImageUrl: generatedUrl
+        });
+
+        return {
+          success: true,
+          generatedUrl
+        };
+      }
+
+      throw new Error('No image generated from FAL API');
+    } catch (error) {
+      console.error('Regenerate with Edit Look failed:', error);
       throw error;
     }
   },
@@ -258,7 +315,7 @@ export const cacheService = {
   /**
    * Get a random cached result for a specific prompt
    * Used in demo mode to return mockup results
-   * @param {string} promptType - 'looking' or 'templates'
+   * @param {string} promptType - 'edit_styles' or 'templates'
    * @param {string} promptId - ID of the prompt
    * @returns {Promise<string|null>} - Random generated image URL or null
    */
