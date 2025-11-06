@@ -64,45 +64,55 @@ function EditLook() {
   }, [identityPhoto, transformationOptions]);
 
   useEffect(() => {
-    // Load cached results when cache mode is enabled and test image is selected
-    if (cacheMode && selectedTestImageId && transformationOptions.length > 0) {
+    // Load cached results when cache mode is enabled
+    if (cacheMode && transformationOptions.length > 0) {
       loadCachedPreviews();
     }
-  }, [cacheMode, selectedTestImageId, transformationOptions]);
+  }, [cacheMode, transformationOptions]);
 
   const loadCachedPreviews = async () => {
     try {
-      const cached = await cacheService.getCachedResults(selectedTestImageId);
-      setCachedGenerations(cached);
-      console.log('Loaded cached results for test image:', selectedTestImageId);
+      console.log('Cache mode ON - loading random cached results for preview...');
 
-      // Update preview states with cached results
+      // Update preview states with random cached results
       const newPreviewStates = {};
-      transformationOptions.forEach(option => {
-        const cachedItem = cached.looking?.[option.id];
-        if (cachedItem) {
-          newPreviewStates[option.id] = {
-            loading: false,
-            imageUrl: cachedItem.generatedUrl,
-            error: null
-          };
-        } else {
+
+      for (const option of transformationOptions) {
+        try {
+          const cachedUrl = await cacheService.getRandomCachedResult('looking', option.id);
+          if (cachedUrl) {
+            newPreviewStates[option.id] = {
+              loading: false,
+              imageUrl: cachedUrl,
+              error: null
+            };
+          } else {
+            newPreviewStates[option.id] = {
+              loading: false,
+              imageUrl: null,
+              error: 'No cached results available'
+            };
+          }
+        } catch (error) {
+          console.error(`Failed to load cached preview for ${option.id}:`, error);
           newPreviewStates[option.id] = {
             loading: false,
             imageUrl: null,
-            error: 'No cached result available'
+            error: 'Failed to load cached result'
           };
         }
-      });
+      }
+
       setPreviewStates(newPreviewStates);
+      console.log('Loaded random cached previews');
     } catch (error) {
       console.error('Failed to load cached previews:', error);
     }
   };
 
   const generateAllPreviews = async () => {
-    // If cache mode is enabled, load from cache instead
-    if (cacheMode && selectedTestImageId) {
+    // If cache mode is enabled, load random cached results instead
+    if (cacheMode) {
       loadCachedPreviews();
       return;
     }

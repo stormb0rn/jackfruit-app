@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAppStore from './stores/appStore';
@@ -10,6 +10,7 @@ import Feed from './pages/Feed';
 import Profile from './pages/Profile';
 import ConfigAdmin from './pages/ConfigAdmin';
 import MobileFrameWrapper from './components/MobileFrameWrapper';
+import settingsService from './services/settingsService';
 
 function MainApp() {
   const currentStep = useAppStore((state) => state.currentStep);
@@ -41,6 +42,34 @@ function MainApp() {
 }
 
 function App() {
+  const setCacheMode = useAppStore((state) => state.setCacheMode);
+
+  useEffect(() => {
+    // Fetch global cache mode on app startup
+    const fetchGlobalCacheMode = async () => {
+      try {
+        const cacheMode = await settingsService.getGlobalCacheMode();
+        console.log('Initial global cache mode:', cacheMode);
+        setCacheMode(cacheMode);
+      } catch (error) {
+        console.error('Failed to fetch global cache mode:', error);
+      }
+    };
+
+    fetchGlobalCacheMode();
+
+    // Subscribe to real-time cache mode changes
+    const subscription = settingsService.subscribeToCacheModeChanges((newCacheMode) => {
+      console.log('Cache mode changed (real-time):', newCacheMode);
+      setCacheMode(newCacheMode);
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [setCacheMode]);
+
   return (
     <BrowserRouter>
       <MobileFrameWrapper>

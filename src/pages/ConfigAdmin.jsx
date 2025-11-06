@@ -6,6 +6,7 @@ import { supabase } from '../services/supabaseClient';
 import { falApi } from '../services/falApi';
 import { styleTemplateImages } from '../assets/style-templates/index.js';
 import cacheService from '../services/cacheService';
+import settingsService from '../services/settingsService';
 import useAppStore from '../stores/appStore';
 
 function ConfigAdmin() {
@@ -115,6 +116,24 @@ function ConfigAdmin() {
       }
 
       setCachedResults({ looking: {}, templates: {} });
+    }
+  };
+
+  const handleCacheModeToggle = async (enabled) => {
+    try {
+      // Update global cache mode in Supabase
+      const success = await settingsService.setGlobalCacheMode(enabled);
+
+      if (success) {
+        // Update local state (will also be updated via real-time subscription in App.jsx)
+        setCacheMode(enabled);
+        console.log('✅ Global cache mode updated:', enabled);
+      } else {
+        alert('Failed to update cache mode. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Failed to toggle cache mode:', error);
+      alert('Failed to update cache mode. Please try again.');
     }
   };
 
@@ -645,7 +664,7 @@ function ConfigAdmin() {
             </View>
             <Switch
               value={cacheMode}
-              onValueChange={setCacheMode}
+              onValueChange={handleCacheModeToggle}
               trackColor={{ false: '#d2d2d7', true: '#34c759' }}
               thumbColor="#fff"
               style={styles.cacheModeSwitch}

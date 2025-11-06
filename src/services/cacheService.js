@@ -253,6 +253,37 @@ export const cacheService = {
 
     if (error) throw error;
     return data && data.length > 0;
+  },
+
+  /**
+   * Get a random cached result for a specific prompt
+   * Used in demo mode to return mockup results
+   * @param {string} promptType - 'looking' or 'templates'
+   * @param {string} promptId - ID of the prompt
+   * @returns {Promise<string|null>} - Random generated image URL or null
+   */
+  getRandomCachedResult: async (promptType, promptId) => {
+    try {
+      const { data, error } = await supabase
+        .from('cached_generations')
+        .select('generated_image_url')
+        .eq('prompt_type', promptType)
+        .eq('prompt_id', promptId);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        console.warn(`No cached results found for ${promptType}/${promptId}`);
+        return null;
+      }
+
+      // Return a random result from the cached data
+      const randomIndex = Math.floor(Math.random() * data.length);
+      return data[randomIndex].generated_image_url;
+    } catch (error) {
+      console.error('Failed to get random cached result:', error);
+      return null;
+    }
   }
 };
 

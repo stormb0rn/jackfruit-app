@@ -79,12 +79,28 @@ function Templates() {
 
       let imageUrl;
 
-      // Check if cache mode is enabled
-      if (cacheMode && selectedTestImageId && cachedGenerations?.templates?.[template.id]) {
-        console.log('Using cached template result:', template.id);
-        imageUrl = cachedGenerations.templates[template.id].generatedUrl;
+      // Check if cache mode is enabled - use random cached result (demo mode)
+      if (cacheMode) {
+        console.log('Cache mode ON - using random cached result for template:', template.id);
+        imageUrl = await cacheService.getRandomCachedResult('templates', template.id);
+
+        if (!imageUrl) {
+          console.warn('No cached results found, falling back to API call');
+          // Fall back to real API if no cached results
+          const result = await supabaseApi.transformImage(
+            identityPhoto.url,
+            selectedTransformation,
+            template.id
+          );
+
+          if (result.success) {
+            imageUrl = result.imageUrl;
+          } else {
+            throw new Error(result.error || 'Transformation failed');
+          }
+        }
       } else {
-        console.log('Generating transformation with:', {
+        console.log('Cache mode OFF - calling real API with:', {
           photoUrl: identityPhoto.url,
           transformation: selectedTransformation,
           visualStyle: template.id
