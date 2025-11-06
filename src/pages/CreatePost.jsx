@@ -68,7 +68,7 @@ function CreatePost() {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigate('/templates')} style={styles.backButton}>
+          <TouchableOpacity onPress={() => navigate('/1st-post')} style={styles.backButton}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Create Your Post</Text>

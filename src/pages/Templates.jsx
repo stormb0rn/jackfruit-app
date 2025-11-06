@@ -183,7 +183,7 @@ function Templates() {
         });
 
         generatedPhotos.forEach(photo => addGeneratedPhoto(photo));
-        navigate('/create-post');
+        navigate('/1st-post');
       } else {
         throw new Error('No images were generated');
       }

@@ -6,6 +6,7 @@ import Landing from './pages/Landing';
 import IdentityUpload from './pages/IdentityUpload';
 import EditLook from './pages/EditLook';
 import Templates from './pages/Templates';
+import FirstPost from './pages/FirstPost';
 import CreatePost from './pages/CreatePost';
 import Feed from './pages/Feed';
 import Profile from './pages/Profile';
@@ -83,6 +84,11 @@ function App() {
           <Route path="/templates" element={
             <View style={styles.app}>
               <Templates />
+            </View>
+          } />
+          <Route path="/1st-post" element={
+            <View style={styles.app}>
+              <FirstPost />
             </View>
           } />
           <Route path="/create-post" element={
