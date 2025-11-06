@@ -66,7 +66,6 @@ function Landing() {
           <video
             autoPlay
             loop
-            muted
             playsInline
             style={{
               position: 'absolute',
