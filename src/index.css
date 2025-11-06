@@ -1,16 +1,73 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Font Imports */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+
+/* Telka Extended - All Weights */
+@font-face {
+  font-family: 'Telka';
+  src: url('/fonts/Telka-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Telka';
+  src: url('/fonts/Telka-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Telka Extended';
+  src: url('/fonts/Telka-ExtendedMedium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Telka Extended';
+  src: url('/fonts/Telka-ExtendedBold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Telka Extended';
+  src: url('/fonts/Telka-ExtendedSuper.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Telka Extended';
+  src: url('/fonts/Telka-ExtendedBlack.otf') format('opentype');
+  font-weight: 950;
+  font-style: normal;
+  font-display: swap;
 }
 
 :root {
+  --telka-font: 'Telka Extended', 'Bebas Neue', 'Archivo Black', 'Anton', 'Impact', 'Arial Black', sans-serif;
   /* iOS Safe Area Variables */
   --sat: env(safe-area-inset-top);
   --sar: env(safe-area-inset-right);
   --sab: env(safe-area-inset-bottom);
   --sal: env(safe-area-inset-left);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
@@ -27,21 +84,21 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f8f9fa;
   margin: 0;
-  /* Prevent overscroll */
-  position: fixed;
+  padding: 0;
+  /* Use consistent viewport height - avoid dvh for better desktop/mobile consistency */
   width: 100%;
   height: 100vh;
-  height: 100dvh; /* Dynamic viewport height for mobile */
   overflow: hidden;
 }
 
 .app {
   width: 100%;
   height: 100vh;
-  height: 100dvh;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  /* Improve scrolling on mobile devices */
+  overscroll-behavior: contain;
 }
 
 button {
@@ -112,5 +169,58 @@ html {
 @media (max-width: 768px) {
   body {
     background-color: #000;
+  }
+
+  /* Prevent text size adjustment on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+/* iOS Liquid Glass Custom Styles */
+@layer components {
+  .glass-morphism {
+    @apply backdrop-blur-2xl bg-white/10 border border-white/20;
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .glass-morphism-dark {
+    @apply backdrop-blur-3xl bg-black/20 border border-white/10;
+    -webkit-backdrop-filter: blur(30px);
+  }
+
+  .liquid-button {
+    @apply transition-all duration-300 ease-out;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .liquid-button:active {
+    @apply scale-95;
+    animation: liquid-pulse 0.3s ease-in-out;
+  }
+
+  .liquid-shadow {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.05),
+      0 4px 12px rgba(0, 0, 0, 0.1),
+      inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  }
+
+  .liquid-shadow-dark {
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.3),
+      inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* iOS Liquid Animation */
+@keyframes liquid-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
   }
 }
