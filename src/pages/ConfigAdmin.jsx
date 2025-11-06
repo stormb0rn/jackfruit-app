@@ -7,6 +7,7 @@ import { falApi } from '../services/falApi';
 import { styleTemplateImages } from '../assets/style-templates/index.js';
 import cacheService from '../services/cacheService';
 import settingsService from '../services/settingsService';
+import configService from '../services/configService';
 import useAppStore from '../stores/appStore';
 
 function ConfigAdmin() {
@@ -58,8 +59,49 @@ function ConfigAdmin() {
     }
   }, [selectedTestImageIndex, testImages]);
 
-  const loadConfig = () => {
-    // Merge visual_style into looking
+  const loadConfig = async () => {
+    try {
+      // Initialize defaults in Supabase if needed
+      await configService.initializeDefaults();
+
+      // Load from Supabase (falls back to JSON files if empty)
+      const [lookingData, templatesData] = await Promise.all([
+        configService.loadConfig('looking'),
+        configService.loadConfig('templates')
+      ]);
+
+      // Add enabled flag to all items if not present
+      const lookingWithEnabled = {};
+      Object.entries(lookingData).forEach(([key, value]) => {
+        lookingWithEnabled[key] = {
+          ...value,
+          enabled: value.enabled !== undefined ? value.enabled : true
+        };
+      });
+
+      const templatesWithEnabled = {};
+      Object.entries(templatesData).forEach(([key, value]) => {
+        templatesWithEnabled[key] = {
+          ...value,
+          enabled: value.enabled !== undefined ? value.enabled : true
+        };
+      });
+
+      setConfig({
+        looking: lookingWithEnabled,
+        templates: templatesWithEnabled
+      });
+
+      console.log('✅ Configuration loaded from Supabase');
+    } catch (error) {
+      console.error('Failed to load config from Supabase:', error);
+      // Fallback to JSON files on error
+      loadConfigFromJSON();
+    }
+  };
+
+  const loadConfigFromJSON = () => {
+    // Fallback: Load from local JSON files
     const mergedLooking = {
       ...transformationConfig.looking,
       ...Object.entries(transformationConfig.visual_style).reduce((acc, [key, value]) => {
@@ -68,14 +110,12 @@ function ConfigAdmin() {
       }, {})
     };
 
-    // Add enabled flag to all looking items if not present
     Object.keys(mergedLooking).forEach(key => {
       if (mergedLooking[key].enabled === undefined) {
         mergedLooking[key].enabled = true;
       }
     });
 
-    // Add enabled flag to templates if not present
     const templatesWithEnabled = {};
     Object.entries(styleTemplatesConfig.templates || {}).forEach(([key, value]) => {
       templatesWithEnabled[key] = {
@@ -234,7 +274,7 @@ function ConfigAdmin() {
     setEditingId(null);
   };
 
-  const saveItem = () => {
+  const saveItem = async () => {
     const newConfig = { ...config };
 
     if (editingId && editingId !== formData.id) {
@@ -252,10 +292,17 @@ function ConfigAdmin() {
     };
 
     setConfig(newConfig);
+
+    // Auto-save to Supabase
+    const success = await configService.saveConfig(currentType, newConfig[currentType]);
+    if (!success) {
+      alert('Warning: Failed to save configuration to database. Changes are only stored locally.');
+    }
+
     closeModal();
   };
 
-  const deleteItem = (type, id) => {
+  const deleteItem = async (type, id) => {
     const confirmed = window.confirm('Confirm Delete\n\nAre you sure you want to delete this item?');
 
     if (!confirmed) return;
@@ -263,12 +310,18 @@ function ConfigAdmin() {
     const newConfig = { ...config };
     delete newConfig[type][id];
     setConfig(newConfig);
+
+    // Auto-save to Supabase
+    await configService.saveConfig(type, newConfig[type]);
   };
 
-  const toggleEnabled = (type, id) => {
+  const toggleEnabled = async (type, id) => {
     const newConfig = { ...config };
     newConfig[type][id].enabled = !newConfig[type][id].enabled;
     setConfig(newConfig);
+
+    // Auto-save to Supabase
+    await configService.saveConfig(type, newConfig[type]);
   };
 
   const handleImagePick = async () => {
