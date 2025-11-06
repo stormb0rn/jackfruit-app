@@ -19,6 +19,7 @@ const configService = {
         .from('prompt_items')
         .select('*')
         .eq('category', category)
+        .eq('enabled', true)
         .is('deleted_at', null)
         .order('display_order', { ascending: true });
 
