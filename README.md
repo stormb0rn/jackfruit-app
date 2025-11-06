@@ -178,6 +178,40 @@ See [REACT_NATIVE_WEB.md](./REACT_NATIVE_WEB.md) for detailed documentation.
 - iOS safe area support
 - PWA ready for home screen installation
 
+## Deployment to Vercel
+
+### Prerequisites
+- GitHub repository connected to Vercel
+- FAL API key for image transformations
+- Supabase project with URL and anon key
+
+### Environment Variables
+
+Add these environment variables in Vercel dashboard:
+
+```
+VITE_FAL_API_KEY=your_fal_api_key
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### Deploy Steps
+
+1. Push code to GitHub repository
+2. Import project in Vercel dashboard
+3. Configure environment variables
+4. Deploy
+
+The project is already configured with:
+- `vercel.json` with build settings
+- Vite build optimization
+- SPA routing rewrites
+
+### Accessing the App
+
+- Main app: `https://your-app.vercel.app/`
+- Admin panel: `https://your-app.vercel.app/admin`
+
 ## Development Status
 
 Frontend MVP complete with React Native Web. Backend integration pending.
