@@ -33,6 +33,7 @@ function EditLook() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [customPrompt, setCustomPrompt] = useState('');
   const [isGeneratingCustom, setIsGeneratingCustom] = useState(false);
+  const [hasGeneratedPreviews, setHasGeneratedPreviews] = useState(false);
   const scrollViewRef = useRef(null);
 
   useEffect(() => {
@@ -61,10 +62,17 @@ function EditLook() {
 
   useEffect(() => {
     // Auto-generate previews when page loads and identity photo exists
-    if (identityPhoto && transformationOptions.length > 0 && !isGenerating) {
+    // Only generate once to prevent duplicate requests
+    if (identityPhoto && transformationOptions.length > 0 && !hasGeneratedPreviews && !isGenerating) {
       generateAllPreviews();
+      setHasGeneratedPreviews(true);
     }
-  }, [identityPhoto, transformationOptions, isGenerating]);
+  }, [identityPhoto, transformationOptions]);
+
+  useEffect(() => {
+    // Reset generation flag when identity photo changes (user uploads new photo)
+    setHasGeneratedPreviews(false);
+  }, [identityPhoto]);
 
   useEffect(() => {
     // Load cached results when cache mode is enabled

@@ -71,7 +71,7 @@ async function transformSingleImage(
         image_urls: [identityPhotoUrl],
         num_images: 1,
         output_format: "jpeg",
-        aspect_ratio: "1:1",
+        aspect_ratio: "9:16",
       }),
     });
 
