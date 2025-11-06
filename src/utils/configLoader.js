@@ -68,13 +68,13 @@ export const configLoader = {
   },
 
   /**
-   * Get all style templates (sorted by order)
-   * @returns {Array} Array of style template options sorted by order field
+   * Get all style templates (sorted by display_order)
+   * @returns {Array} Array of style template options sorted by display_order field
    */
   getStyleTemplates: () => {
     const templates = getStyleTemplatesConfig();
     const templatesList = Object.values(templates || {});
-    return templatesList.sort((a, b) => (a.order || 0) - (b.order || 0));
+    return templatesList.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   },
 
   /**

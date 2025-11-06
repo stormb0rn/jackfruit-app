@@ -12,6 +12,7 @@ const configService = {
    */
   loadItems: async (category) => {
     try {
+      console.log(`[configService] Loading ${category} items from Supabase...`);
       const { data, error } = await supabase
         .from('prompt_items')
         .select('*')
@@ -25,8 +26,18 @@ const configService = {
         throw error;
       }
 
+      console.log(`[configService] Raw response for ${category}:`, data);
+
       if (!data || data.length === 0) {
-        console.warn(`[configService] No ${category} items found in Supabase`);
+        console.warn(`[configService] ❌ No ${category} items found in Supabase. Checking all records...`);
+
+        // Check all records (without filters) to debug
+        const { data: allData } = await supabase
+          .from('prompt_items')
+          .select('*')
+          .eq('category', category);
+        console.log(`[configService] All ${category} records (unfiltered):`, allData);
+
         return {};
       }
 
@@ -36,7 +47,7 @@ const configService = {
         itemsObj[item.id] = item;
       });
 
-      console.log(`[configService] Loaded ${category} items from Supabase: ${data.length} items`);
+      console.log(`[configService] ✅ Loaded ${category} items from Supabase: ${data.length} items`, itemsObj);
       return itemsObj;
     } catch (error) {
       console.error(`[configService] Error loading ${category} items:`, error);

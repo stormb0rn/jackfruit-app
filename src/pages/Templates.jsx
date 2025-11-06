@@ -22,7 +22,9 @@ function Templates() {
     cacheMode,
     selectedTestImageId,
     cachedGenerations,
-    setCachedGenerations
+    setCachedGenerations,
+    styleTemplates,
+    configLoaded
   } = useAppStore();
 
   // Get template image URL from relative path
@@ -38,7 +40,7 @@ function Templates() {
 
   useEffect(() => {
     loadTemplates();
-  }, []);
+  }, [styleTemplates, configLoaded]);
 
   useEffect(() => {
     // Load cached results when cache mode is enabled and test image is selected
@@ -49,20 +51,23 @@ function Templates() {
 
   const loadTemplates = async () => {
     try {
+      console.log('[Templates] Loading templates... configLoaded:', configLoaded, 'styleTemplates:', styleTemplates);
+
       // Load style templates from config
-      const styleTemplates = configLoader.getStyleTemplates();
+      const templatesArray = configLoader.getStyleTemplates();
+      console.log('[Templates] Got style templates from configLoader:', templatesArray);
 
       // Map templates to include image URLs from Supabase
-      const templatesWithImages = styleTemplates.map(template => ({
+      const templatesWithImages = templatesArray.map(template => ({
         ...template,
-        thumbnail: getTemplateImageUrl(template.image)
+        thumbnail: getTemplateImageUrl(template.image_path)
       }));
 
+      console.log('[Templates] ✅ Loaded templates with images:', templatesWithImages.length, templatesWithImages);
       setTemplates(templatesWithImages);
-      console.log('Loaded templates:', templatesWithImages.length);
+      setLoading(false);
     } catch (error) {
-      console.error('Failed to load templates:', error);
-    } finally {
+      console.error('[Templates] Failed to load templates:', error);
       setLoading(false);
     }
   };
