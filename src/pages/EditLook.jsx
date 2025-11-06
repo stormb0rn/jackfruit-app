@@ -64,7 +64,7 @@ function EditLook() {
     if (identityPhoto && transformationOptions.length > 0 && !isGenerating) {
       generateAllPreviews();
     }
-  }, [identityPhoto, transformationOptions]);
+  }, [identityPhoto, transformationOptions, isGenerating]);
 
   useEffect(() => {
     // Load cached results when cache mode is enabled
@@ -378,56 +378,52 @@ function EditLook() {
       </View>
 
       <View style={styles.carouselSection}>
-        {Platform.OS === 'web' ? (
-          <>
-            <style>{`
-              .carousel-container::-webkit-scrollbar {
-                display: none;
-              }
-              .carousel-container {
-                -ms-overflow-style: none;
-                scrollbar-width: none;
-              }
-            `}</style>
+        <style>{`
+          .carousel-container::-webkit-scrollbar {
+            display: none;
+          }
+          .carousel-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}</style>
+        <div
+          ref={scrollViewRef}
+          className="carousel-container"
+          onScroll={(e) => handleScroll({ nativeEvent: { contentOffset: { x: e.target.scrollLeft } } })}
+          style={{
+            display: 'flex',
+            overflowX: 'scroll',
+            scrollSnapType: 'x mandatory',
+            scrollBehavior: 'smooth',
+            WebkitOverflowScrolling: 'touch',
+            width: '100%',
+            height: '100%',
+            cursor: 'grab',
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.cursor = 'grabbing';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.cursor = 'grab';
+          }}
+        >
+          {transformationOptions.map((option) => (
             <div
-              ref={scrollViewRef}
-              className="carousel-container"
-              onScroll={(e) => handleScroll({ nativeEvent: { contentOffset: { x: e.target.scrollLeft } } })}
+              key={option.id}
               style={{
+                scrollSnapAlign: 'center',
+                flex: '0 0 100%',
+                width: `${screenWidth}px`,
                 display: 'flex',
-                overflowX: 'scroll',
-                scrollSnapType: 'x mandatory',
-                scrollBehavior: 'smooth',
-                WebkitOverflowScrolling: 'touch',
-                width: '100%',
-                height: '100%',
-                cursor: 'grab',
-              }}
-              onMouseDown={(e) => {
-                e.currentTarget.style.cursor = 'grabbing';
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.style.cursor = 'grab';
+                justifyContent: 'center',
+                alignItems: 'center',
               }}
             >
-              {transformationOptions.map((option) => (
-                <div
-                  key={option.id}
-                  style={{
-                    scrollSnapAlign: 'center',
-                    flex: '0 0 100%',
-                    width: `${screenWidth}px`,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
-                  {renderCarouselItem({ item: option })}
-                </div>
-              ))}
+              {renderCarouselItem({ item: option })}
             </div>
-          </>
-        ) : null}
+          ))}
+        </div>
 
         {renderPaginationDots()}
 

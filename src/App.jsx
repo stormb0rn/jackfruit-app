@@ -42,14 +42,21 @@ function App() {
     initializeApp();
 
     // Subscribe to real-time cache mode changes
-    const subscription = settingsService.subscribeToCacheModeChanges((newCacheMode) => {
-      console.log('Cache mode changed (real-time):', newCacheMode);
-      setCacheMode(newCacheMode);
-    });
+    let subscription = null;
+    try {
+      subscription = settingsService.subscribeToCacheModeChanges((newCacheMode) => {
+        console.log('Cache mode changed (real-time):', newCacheMode);
+        setCacheMode(newCacheMode);
+      });
+    } catch (error) {
+      console.warn('Real-time subscription failed (non-critical):', error);
+    }
 
     // Cleanup subscription on unmount
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [setCacheMode, loadConfigFromSupabase]);
 
