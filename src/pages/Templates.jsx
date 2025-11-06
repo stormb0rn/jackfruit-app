@@ -160,6 +160,23 @@ function Templates() {
 
       // Add all generated photos and navigate
       if (generatedPhotos.length > 0) {
+        // Save user generation to database
+        const promptTexts = promptsArray.join(' | ');
+        const imageUrls = generatedPhotos.map(photo => photo.url);
+
+        cacheService.saveUserGeneration({
+          testImageId: `user_template_${Date.now()}_${template.id}`,
+          testImageUrl: identityPhoto.url,
+          promptType: 'templates',
+          promptId: template.id,
+          promptText: promptTexts,
+          generatedImageUrls: imageUrls,
+          generationSource: 'template'
+        }).catch(err => {
+          console.error('Failed to save template user generation:', err);
+          // Don't block the flow if database save fails
+        });
+
         generatedPhotos.forEach(photo => addGeneratedPhoto(photo));
         navigate('/create-post');
       } else {

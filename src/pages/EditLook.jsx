@@ -156,6 +156,24 @@ function EditLook() {
             imageUrl: transformResult.imageUrl || null,
             error: transformResult.status === 'failed' ? (transformResult.error || 'Generation failed') : null
           };
+
+          // Save user generation to database if successful
+          if (transformResult.status !== 'failed' && transformResult.imageUrl) {
+            const editOption = transformationOptions.find(opt => opt.id === transformResult.editStyleId);
+            if (editOption) {
+              cacheService.saveUserGeneration({
+                testImageId: 'user_' + Date.now() + '_' + transformResult.editStyleId,
+                testImageUrl: identityPhoto.url,
+                promptType: 'looking',
+                promptId: transformResult.editStyleId,
+                promptText: editOption.prompt,
+                generatedImageUrls: [transformResult.imageUrl],
+                generationSource: 'edit_look'
+              }).catch(err => {
+                console.error(`Failed to save user generation for ${transformResult.editStyleId}:`, err);
+              });
+            }
+          }
         });
         setPreviewStates(newPreviewStates);
       } else {
@@ -246,6 +264,19 @@ function EditLook() {
             error: null
           }
         }));
+
+        // Save user generation to database
+        cacheService.saveUserGeneration({
+          testImageId: customOption.id,
+          testImageUrl: identityPhoto.url,
+          promptType: 'looking',
+          promptId: customOption.id,
+          promptText: customPrompt,
+          generatedImageUrls: [result.imageUrl],
+          generationSource: 'edit_look'
+        }).catch(err => {
+          console.error('Failed to save custom look generation:', err);
+        });
 
         // Scroll to the new custom look
         setTimeout(() => {

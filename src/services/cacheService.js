@@ -57,14 +57,16 @@ export const cacheService = {
         if (falResult.images && falResult.images[0]) {
           const generatedUrl = falResult.images[0].url;
 
-          // Save to cache in Supabase
+          // Save to cache in Supabase (admin cache)
           await cacheService.saveCachedGeneration({
             testImageId,
             testImageUrl,
             promptType: promptItem.type,
             promptId: promptItem.id,
             promptText: promptItem.prompt,
-            generatedImageUrl: generatedUrl
+            generatedImageUrl: generatedUrl,
+            isAdminCache: true,
+            generationSource: 'admin'
           });
 
           results.success.push({
@@ -88,7 +90,7 @@ export const cacheService = {
 
   /**
    * Save a cached generation to Supabase
-   * @param {object} data - Cache data
+   * @param {object} data - Cache data with optional isAdminCache and generationSource
    * @returns {Promise<object>} - Saved data
    */
   saveCachedGeneration: async (data) => {
@@ -104,6 +106,31 @@ export const cacheService = {
       throw new Error('No image URL(s) provided to save');
     }
 
+    const isAdminCache = data.isAdminCache !== undefined ? data.isAdminCache : true;  // Default to admin for backward compatibility
+    const generationSource = data.generationSource || 'admin';
+
+    // For user generations, use insert instead of upsert to allow multiple generations
+    if (!isAdminCache) {
+      const { error, data: savedData } = await supabase
+        .from('cached_generations')
+        .insert({
+          test_image_id: data.testImageId,
+          test_image_url: data.testImageUrl,
+          prompt_type: data.promptType,
+          prompt_id: data.promptId,
+          prompt_text: data.promptText,
+          generated_image_url: imageUrl,
+          is_admin_cache: false,
+          generation_source: generationSource
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return savedData;
+    }
+
+    // For admin caches, use upsert to replace existing
     const { error, data: savedData } = await supabase
       .from('cached_generations')
       .upsert({
@@ -112,7 +139,9 @@ export const cacheService = {
         prompt_type: data.promptType,
         prompt_id: data.promptId,
         prompt_text: data.promptText,
-        generated_image_url: imageUrl  // Now stores JSONB array
+        generated_image_url: imageUrl,
+        is_admin_cache: true,
+        generation_source: generationSource
       }, {
         onConflict: 'test_image_id,prompt_type,prompt_id'
       })
@@ -121,6 +150,20 @@ export const cacheService = {
 
     if (error) throw error;
     return savedData;
+  },
+
+  /**
+   * Save a user-generated image to Supabase
+   * This is a convenience method for saving user generations (non-admin)
+   * @param {object} data - User generation data
+   * @returns {Promise<object>} - Saved data
+   */
+  saveUserGeneration: async (data) => {
+    return cacheService.saveCachedGeneration({
+      ...data,
+      isAdminCache: false,
+      generationSource: data.generationSource || 'edit_look'
+    });
   },
 
   /**
@@ -312,14 +355,16 @@ export const cacheService = {
         throw new Error('No valid prompts to generate images from');
       }
 
-      // Save to cache in Supabase with array of URLs
+      // Save to cache in Supabase with array of URLs (admin cache)
       await cacheService.saveCachedGeneration({
         testImageId,
         testImageUrl: editLookGeneratedUrl,
         promptType: 'templates',
         promptId,
         promptText: promptsArray.join(' | '), // Join for display
-        generatedImageUrls: generatedUrls // Pass array of URLs
+        generatedImageUrls: generatedUrls, // Pass array of URLs
+        isAdminCache: true,
+        generationSource: 'admin'
       });
 
       return {
