@@ -292,11 +292,22 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     paddingTop: 60,
     paddingHorizontal: 20,
+    paddingBottom: 20,
     alignItems: 'center',
-    marginBottom: 20,
-    zIndex: 1,
+    zIndex: 50,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+      },
+    }),
   },
   backButton: {
     position: 'absolute',
@@ -329,7 +340,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     paddingHorizontal: 33,
-    paddingTop: 10,
+    paddingTop: 130,
     paddingBottom: 100,
   },
   gridContainer: {
@@ -403,14 +414,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   bottomButtonContainer: {
-    position: 'absolute',
-    bottom: 0,
+    position: 'fixed',
+    bottom: 30,
     left: 0,
     right: 0,
-    paddingBottom: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    zIndex: 100,
     pointerEvents: 'box-none',
   },
   selectButton: {

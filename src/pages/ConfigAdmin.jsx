@@ -1187,38 +1187,88 @@ function ConfigAdmin() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editingId ? 'Edit Item' : 'Add New Item'}
-            </Text>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>
-                ID {!editingId && '(Auto-generated)'}
+            <ScrollView style={styles.modalScrollContent}>
+              <Text style={styles.modalTitle}>
+                {editingId ? 'Edit Item' : 'Add New Item'}
               </Text>
-              <TextInput
-                style={[styles.input, styles.inputDisabled]}
-                value={formData.id}
-                onChangeText={(text) => setFormData({ ...formData, id: text })}
-                placeholder="Auto-generated"
-                editable={false}
-              />
-            </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Name</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.name}
-                onChangeText={(text) => setFormData({ ...formData, name: text })}
-                placeholder="e.g., Better-Looking"
-              />
-            </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>
+                  ID {!editingId && '(Auto-generated)'}
+                </Text>
+                <TextInput
+                  style={[styles.input, styles.inputDisabled]}
+                  value={formData.id}
+                  onChangeText={(text) => setFormData({ ...formData, id: text })}
+                  placeholder="Auto-generated"
+                  editable={false}
+                />
+              </View>
 
-            {/* Prompt inputs - 1 for Edit Look, 3 for Templates */}
-            {currentType === 'templates' ? (
-              <>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.name}
+                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  placeholder="e.g., Better-Looking"
+                />
+              </View>
+
+              {/* Prompt inputs - 1 for Edit Look, 3 for Templates */}
+              {currentType === 'templates' ? (
+                <>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Prompt 1 (Required)</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={formData.prompts[0]}
+                      onChangeText={(text) => {
+                        const newPrompts = [...formData.prompts];
+                        newPrompts[0] = text;
+                        setFormData({ ...formData, prompts: newPrompts });
+                      }}
+                      placeholder="First prompt..."
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Prompt 2 (Optional)</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={formData.prompts[1]}
+                      onChangeText={(text) => {
+                        const newPrompts = [...formData.prompts];
+                        newPrompts[1] = text;
+                        setFormData({ ...formData, prompts: newPrompts });
+                      }}
+                      placeholder="Second prompt..."
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Prompt 3 (Optional)</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={formData.prompts[2]}
+                      onChangeText={(text) => {
+                        const newPrompts = [...formData.prompts];
+                        newPrompts[2] = text;
+                        setFormData({ ...formData, prompts: newPrompts });
+                      }}
+                      placeholder="Third prompt..."
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+                </>
+              ) : (
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Prompt 1 (Required)</Text>
+                  <Text style={styles.label}>Prompt</Text>
                   <TextInput
                     style={[styles.input, styles.textArea]}
                     value={formData.prompts[0]}
@@ -1227,113 +1277,65 @@ function ConfigAdmin() {
                       newPrompts[0] = text;
                       setFormData({ ...formData, prompts: newPrompts });
                     }}
-                    placeholder="First prompt..."
+                    placeholder="e.g., better-looking, enhanced features, more attractive, photorealistic, realistic lighting, high detail, lifelike"
                     multiline
-                    numberOfLines={3}
+                    numberOfLines={4}
                   />
                 </View>
+              )}
 
+              {currentType === 'templates' && (
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Prompt 2 (Optional)</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={formData.prompts[1]}
-                    onChangeText={(text) => {
-                      const newPrompts = [...formData.prompts];
-                      newPrompts[1] = text;
-                      setFormData({ ...formData, prompts: newPrompts });
-                    }}
-                    placeholder="Second prompt..."
-                    multiline
-                    numberOfLines={3}
-                  />
-                </View>
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Prompt 3 (Optional)</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={formData.prompts[2]}
-                    onChangeText={(text) => {
-                      const newPrompts = [...formData.prompts];
-                      newPrompts[2] = text;
-                      setFormData({ ...formData, prompts: newPrompts });
-                    }}
-                    placeholder="Third prompt..."
-                    multiline
-                    numberOfLines={3}
-                  />
-                </View>
-              </>
-            ) : (
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Prompt</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={formData.prompts[0]}
-                  onChangeText={(text) => {
-                    const newPrompts = [...formData.prompts];
-                    newPrompts[0] = text;
-                    setFormData({ ...formData, prompts: newPrompts });
-                  }}
-                  placeholder="e.g., better-looking, enhanced features, more attractive, photorealistic, realistic lighting, high detail, lifelike"
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
-            )}
-
-            {currentType === 'templates' && (
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Template Image</Text>
-                <View style={styles.imageUploadContainer}>
-                  <TextInput
-                    style={[styles.input, styles.inputDisabled]}
-                    value={formData.image_path}
-                    placeholder="Upload an image..."
-                    editable={false}
-                  />
-                  <TouchableOpacity
-                    style={[styles.uploadButton, isUploadingTemplateImage && styles.disabledButton]}
-                    onPress={handleTemplateImageUpload}
-                    disabled={isUploadingTemplateImage}
-                    activeOpacity={0.7}
-                  >
-                    {isUploadingTemplateImage ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Text style={styles.uploadButtonText}>Upload</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                {(formData.image_path || uploadedImagePreview) && (
-                  <View style={styles.imagePreviewContainer}>
-                    <Image
-                      source={{
-                        uri: uploadedImagePreview || getTemplateImageUrl(formData.image_path)
-                      }}
-                      style={styles.imagePreview}
-                      resizeMode="cover"
+                  <Text style={styles.label}>Template Image</Text>
+                  <View style={styles.imageUploadContainer}>
+                    <TextInput
+                      style={[styles.input, styles.inputDisabled]}
+                      value={formData.image_path}
+                      placeholder="Upload an image..."
+                      editable={false}
                     />
+                    <TouchableOpacity
+                      style={[styles.uploadButton, isUploadingTemplateImage && styles.disabledButton]}
+                      onPress={handleTemplateImageUpload}
+                      disabled={isUploadingTemplateImage}
+                      activeOpacity={0.7}
+                    >
+                      {isUploadingTemplateImage ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.uploadButtonText}>Upload</Text>
+                      )}
+                    </TouchableOpacity>
                   </View>
-                )}
-              </View>
-            )}
 
-            <View style={styles.formGroup}>
-              <View style={styles.switchRow}>
-                <Text style={styles.label}>Enabled in App</Text>
-                <Switch
-                  value={formData.enabled}
-                  onValueChange={(value) => setFormData({ ...formData, enabled: value })}
-                  trackColor={{ false: '#d2d2d7', true: '#34c759' }}
-                  thumbColor="#fff"
-                />
-              </View>
-            </View>
+                  {(formData.image_path || uploadedImagePreview) && (
+                    <View style={styles.imagePreviewContainer}>
+                      <Image
+                        source={{
+                          uri: uploadedImagePreview || getTemplateImageUrl(formData.image_path)
+                        }}
+                        style={styles.imagePreview}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  )}
+                </View>
+              )}
 
-            <View style={styles.modalActions}>
+              <View style={styles.formGroup}>
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>Enabled in App</Text>
+                  <Switch
+                    value={formData.enabled}
+                    onValueChange={(value) => setFormData({ ...formData, enabled: value })}
+                    trackColor={{ false: '#d2d2d7', true: '#34c759' }}
+                    thumbColor="#fff"
+                  />
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={styles.secondaryButton}
                 onPress={closeModal}
@@ -1807,10 +1809,30 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: 'white',
     borderRadius: 18,
+    width: '95%',
+    maxWidth: 900,
+    height: '95%',
+    maxHeight: '95vh',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  modalScrollContent: {
+    flex: 1,
     padding: 32,
-    width: '90%',
-    maxWidth: 500,
-    maxHeight: '90%',
+    paddingBottom: 20,
+    overflowY: 'auto',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    padding: 20,
+    paddingRight: 32,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e5e7',
+    backgroundColor: '#fff',
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
   },
   modalTitle: {
     fontSize: 24,
@@ -1840,8 +1862,9 @@ const styles = StyleSheet.create({
     color: '#8e8e93',
   },
   textArea: {
-    minHeight: 80,
+    minHeight: 100,
     textAlignVertical: 'top',
+    paddingTop: 12,
   },
   switchRow: {
     flexDirection: 'row',
@@ -1849,10 +1872,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'flex-end',
-    marginTop: 24,
+    // Removed - using modalFooter instead
   },
   secondaryButton: {
     backgroundColor: '#e8e8ed',
