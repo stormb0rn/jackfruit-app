@@ -222,7 +222,7 @@ function IdentityUpload() {
         <TouchableOpacity
           style={styles.cameraButton}
           onPress={capturedImage ? handleUpload : handleTakePhoto}
-          disabled={uploading || (!isCameraReady && !capturedImage)}
+          disabled={uploading}
           activeOpacity={0.8}
         >
           {!uploading && (
@@ -231,24 +231,9 @@ function IdentityUpload() {
                 <Text style={styles.uploadButtonText}>Upload</Text>
               </View>
             ) : (
-              <div style={{
-                width: 73,
-                height: 73,
-                borderRadius: '50%',
-                border: '4px solid white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'transparent',
-                position: 'relative',
-              }}>
-                <div style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: '50%',
-                  backgroundColor: 'white',
-                }} />
-              </div>
+              <View style={styles.takePhotoButton}>
+                <View style={styles.takePhotoButtonInner} />
+              </View>
             )
           )}
           {uploading && <Text style={styles.uploadingText}>...</Text>}
@@ -280,6 +265,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    zIndex: 100,
   },
   backButtonText: {
     fontSize: 14,
@@ -434,6 +420,21 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#000',
     fontWeight: 'bold',
+  },
+  takePhotoButton: {
+    width: 73,
+    height: 73,
+    borderRadius: 999,
+    border: '4px solid white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  takePhotoButtonInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: '#fff',
   },
   nextButtonPlaceholder: {
     width: 40,
