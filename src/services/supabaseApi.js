@@ -5,16 +5,16 @@ export const supabaseApi = {
   /**
    * Call the transform-image edge function
    * @param {string} identityPhotoUrl - URL of the identity photo
-   * @param {string} lookingType - Looking type ID
-   * @param {string} visualStyle - Visual style ID
+   * @param {string} prompt - Complete AI prompt for transformation
+   * @param {string} editStyleId - Edit style ID (optional)
    * @returns {Promise<object>} Transformation result
    */
-  transformImage: async (identityPhotoUrl, lookingType, visualStyle) => {
+  transformImage: async (identityPhotoUrl, prompt, editStyleId = null) => {
     try {
       console.log('[supabaseApi] Starting transformImage...');
       console.log('[supabaseApi] Identity photo URL:', identityPhotoUrl);
-      console.log('[supabaseApi] Looking type:', lookingType);
-      console.log('[supabaseApi] Visual style:', visualStyle);
+      console.log('[supabaseApi] Prompt:', prompt);
+      console.log('[supabaseApi] Edit style ID:', editStyleId);
 
       // Get user (optional - edge function works without auth)
       let userId = null;
@@ -31,8 +31,8 @@ export const supabaseApi = {
       const { data, error } = await supabase.functions.invoke('transform-image', {
         body: {
           identityPhotoUrl,
-          lookingType,
-          visualStyle,
+          prompt,
+          editStyleId,
           userId,
         },
       });
@@ -56,18 +56,16 @@ export const supabaseApi = {
   },
 
   /**
-   * Call the batch-transform edge function to generate all looking options
+   * Call the batch-transform edge function to generate all edit style variations
    * @param {string} identityPhotoUrl - URL of the identity photo
-   * @param {string} visualStyle - Visual style ID (default: 'realistic')
-   * @param {Array<string>} lookingTypes - Optional array of specific looking types
+   * @param {Array<{id: string, prompt: string}>} editStyles - Array of edit styles with id and prompt
    * @returns {Promise<object>} Batch transformation results
    */
-  batchTransform: async (identityPhotoUrl, visualStyle = 'realistic', lookingTypes = null) => {
+  batchTransform: async (identityPhotoUrl, editStyles) => {
     try {
       console.log('[supabaseApi] Starting batchTransform...');
       console.log('[supabaseApi] Identity photo URL:', identityPhotoUrl);
-      console.log('[supabaseApi] Visual style:', visualStyle);
-      console.log('[supabaseApi] Looking types:', lookingTypes);
+      console.log('[supabaseApi] Edit styles:', editStyles);
 
       // Get user (optional - edge function works without auth)
       let userId = null;
@@ -84,9 +82,8 @@ export const supabaseApi = {
       const { data, error } = await supabase.functions.invoke('batch-transform', {
         body: {
           identityPhotoUrl,
-          visualStyle,
+          editStyles,
           userId,
-          lookingTypes,
         },
       });
 
@@ -126,7 +123,8 @@ export const supabaseApi = {
         .from('identity-photos')
         .upload(fileName, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          contentType: file.type || 'image/jpeg'
         });
 
       if (error) {
@@ -350,6 +348,38 @@ export const supabaseApi = {
     } catch (error) {
       console.error('Get current user error:', error);
       return null;
+    }
+  },
+
+  /**
+   * Get prompt configuration from Supabase
+   * @param {string} configType - Configuration type ('looking' or 'templates')
+   * @returns {Promise<object>} Configuration data
+   */
+  getPromptConfig: async (configType) => {
+    try {
+      console.log('[supabaseApi] Getting prompt config:', configType);
+
+      const { data, error } = await supabase
+        .from('prompt_config')
+        .select('config_data')
+        .eq('config_type', configType)
+        .single();
+
+      if (error) {
+        console.error('[supabaseApi] Get prompt config error:', error);
+        throw error;
+      }
+
+      if (!data || !data.config_data) {
+        throw new Error(`No configuration found for type: ${configType}`);
+      }
+
+      console.log('[supabaseApi] Prompt config loaded successfully');
+      return data.config_data;
+    } catch (error) {
+      console.error('[supabaseApi] Get prompt config error:', error);
+      throw error;
     }
   },
 };
