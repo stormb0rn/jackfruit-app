@@ -13,6 +13,7 @@ function Profile() {
           <TouchableOpacity onPress={() => setCurrentStep('feed')} style={styles.backButton}>
             <Text style={styles.backButtonText}>← Back to Feed</Text>
           </TouchableOpacity>
+          <Text style={styles.title}>My Profile</Text>
         </View>
 
         <View style={styles.profileSection}>
@@ -83,6 +84,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: 24 },
   backButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'white', alignSelf: 'flex-start' },
   backButtonText: { fontSize: 14, color: '#333', fontWeight: '600' },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#333', textAlign: 'center', marginTop: 16 },
   profileSection: { alignItems: 'center', padding: 24, backgroundColor: 'white', borderRadius: 12, marginBottom: 24 },
   avatarContainer: { marginBottom: 16 },
   profileAvatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: '#e0e0e0' },

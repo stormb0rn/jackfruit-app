@@ -3,6 +3,11 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import useAppStore from '../stores/appStore';
 import supabaseApi from '../services/supabaseApi';
 
+// Background image from Figma design
+const imgClassy2 = "https://www.figma.com/api/mcp/asset/864fc063-72c9-47f0-8808-3a9da5a9f74b";
+const imgBottomOverlay = "https://www.figma.com/api/mcp/asset/9ef18272-73f5-4770-a77e-24f1edc5d676";
+const imgTopOverlay = "https://www.figma.com/api/mcp/asset/8c0124a0-fdeb-4dbc-a98b-b3b204b602ea";
+
 function IdentityUpload() {
   const [uploading, setUploading] = useState(false);
   const [showImageSourceModal, setShowImageSourceModal] = useState(false);
@@ -48,20 +53,80 @@ function IdentityUpload() {
 
   return (
     <View style={styles.container}>
-      {/* Background Image */}
+      {/* Background Image from Figma design */}
       {Platform.OS === 'web' && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundImage: 'url(/holographic-bg.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          zIndex: 0,
-        }} />
+        <>
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: '#000',
+            zIndex: 0,
+          }}>
+            <img
+              src={imgClassy2}
+              alt=""
+              style={{
+                position: 'absolute',
+                top: '2px',
+                left: '-156px',
+                width: '565px',
+                height: '848px',
+                objectFit: 'cover',
+                maxWidth: 'none',
+              }}
+            />
+          </div>
+
+          {/* Bottom Overlay */}
+          <div style={{
+            position: 'fixed',
+            bottom: '-11px',
+            left: '-7px',
+            right: '-16px',
+            height: '869px',
+            zIndex: 1,
+            pointerEvents: 'none',
+          }}>
+            <img
+              src={imgBottomOverlay}
+              alt=""
+              style={{
+                display: 'block',
+                width: '100%',
+                height: '100%',
+                maxWidth: 'none',
+              }}
+            />
+          </div>
+
+          {/* Top Overlay */}
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '120px',
+            zIndex: 1,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <img
+              src={imgTopOverlay}
+              alt=""
+              style={{
+                width: '393px',
+                height: '120px',
+                maxWidth: 'none',
+                transform: 'scaleY(-1)',
+              }}
+            />
+          </div>
+        </>
       )}
 
       {/* Hidden file inputs */}
@@ -83,21 +148,21 @@ function IdentityUpload() {
 
       {/* Content */}
       <View style={styles.content}>
-        <View style={styles.centerWrapper}>
-          <Text style={styles.title}>WELCOME TO JACKFRUIT</Text>
+        <View style={styles.topSection}>
+          <Text style={styles.title}>Upload Photo</Text>
+        </View>
 
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={handleCreateWithImage}
-              disabled={uploading}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.buttonText}>
-                {uploading ? 'Uploading...' : 'Create with Image'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.bottomSection}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleCreateWithImage}
+            disabled={uploading}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonText}>
+              {uploading ? 'UPLOADING...' : 'CREATE A PROFILE'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -141,7 +206,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#d8e3f0', // Fallback color
+    backgroundColor: '#000',
     width: '100%',
     height: '100%',
   },
@@ -153,10 +218,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 40,
-    zIndex: 1,
+    paddingTop: 180,
+    paddingBottom: 80,
+    zIndex: 2,
     ...Platform.select({
       web: {
         display: 'flex',
@@ -164,69 +231,64 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  centerWrapper: {
+  topSection: {
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    maxWidth: 500,
+  },
+  bottomSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
-    color: '#000',
+    color: '#fff',
     textAlign: 'center',
-    marginBottom: 60,
-    letterSpacing: 1,
-    // Bold display font from Google Fonts
+    letterSpacing: 0,
     fontFamily: Platform.select({
-      web: "'Bebas Neue', 'Archivo Black', 'Anton', 'Impact', 'Arial Black', sans-serif",
+      web: "'Telka Extended', 'Bebas Neue', 'Archivo Black', 'Anton', 'Impact', 'Arial Black', sans-serif",
       default: 'System',
     }),
-    textTransform: 'uppercase',
     ...Platform.select({
       web: {
         WebkitFontSmoothing: 'antialiased',
-        textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        textShadow: '0px 3px 4px #d9d9d9',
       },
     }),
   },
-  buttonContainer: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 16,
-  },
   button: {
-    backgroundColor: '#FFF4D6',
+    backgroundColor: '#000',
     paddingVertical: 18,
     paddingHorizontal: 40,
-    borderRadius: 50,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 56,
     width: '100%',
-    maxWidth: 320,
-    // Subtle shadow
+    maxWidth: 247,
     ...Platform.select({
       web: {
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        boxShadow: '0px 5px 12.3px 0px rgba(0,0,0,0.25)',
       },
     }),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12.3,
+    elevation: 5,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#000',
-    // Space Mono font
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#fff',
     fontFamily: Platform.select({
-      web: "'Space Mono', monospace",
-      default: 'Courier',
+      web: "'Telka Extended', 'Bebas Neue', 'Archivo Black', 'Anton', 'Impact', 'Arial Black', sans-serif",
+      default: 'System',
     }),
-    letterSpacing: 0.5,
+    letterSpacing: -0.4,
+    textTransform: 'uppercase',
   },
   modalOverlay: {
     position: 'absolute',
@@ -234,71 +296,81 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1a1a1a',
     borderRadius: 20,
     padding: 24,
     width: '85%',
     maxWidth: 400,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
     ...Platform.select({
       web: {
-        boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
       },
     }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.5,
     shadowRadius: 20,
     elevation: 10,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#000',
+    color: '#fff',
     marginBottom: 20,
     textAlign: 'center',
+    textTransform: 'uppercase',
+    fontFamily: Platform.select({
+      web: "'Telka Extended', 'Bebas Neue', 'Archivo Black', 'Anton', 'Impact', 'Arial Black', sans-serif",
+      default: 'System',
+    }),
   },
   modalButton: {
-    backgroundColor: '#FFF4D6',
+    backgroundColor: '#fff',
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 50,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
     marginBottom: 12,
     ...Platform.select({
       web: {
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
       },
     }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 3,
   },
   modalCancelButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#666',
     marginTop: 8,
   },
   modalButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '700',
     color: '#000',
+    textTransform: 'uppercase',
     fontFamily: Platform.select({
-      web: "'Space Mono', monospace",
-      default: 'Courier',
+      web: "'Telka Extended', 'Bebas Neue', 'Archivo Black', 'Anton', 'Impact', 'Arial Black', sans-serif",
+      default: 'System',
     }),
   },
   modalCancelText: {
-    color: '#666',
+    color: '#999',
   },
 });
 

@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clear-cache": "node scripts/clear-cache.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.79.0",
@@ -26,6 +27,8 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
     "globals": "^16.4.0",
+    "internal-ip": "^8.0.1",
+    "qrcode-terminal": "^0.12.0",
     "vite": "^7.1.7"
   }
 }

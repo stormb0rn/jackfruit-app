@@ -92,3 +92,25 @@ body {
 html {
   scroll-behavior: smooth;
 }
+
+/* Desktop Mobile Frame Styles */
+@media (min-width: 769px) {
+  body {
+    background-color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Toggle button hover effect */
+  button:hover {
+    opacity: 0.9;
+  }
+}
+
+/* Mobile - Full width */
+@media (max-width: 768px) {
+  body {
+    background-color: #000;
+  }
+}

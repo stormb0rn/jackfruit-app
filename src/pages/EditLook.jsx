@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, FlatList, Dimensions } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions, Platform } from 'react-native';
 import useAppStore from '../stores/appStore';
 import { configLoader } from '../utils/configLoader';
 import supabaseApi from '../services/supabaseApi';
+import cacheService from '../services/cacheService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -17,12 +18,20 @@ const iconMap = {
 };
 
 function EditLook() {
-  const { identityPhoto, setSelectedTransformation, setCurrentStep } = useAppStore();
+  const {
+    identityPhoto,
+    setSelectedTransformation,
+    setCurrentStep,
+    cacheMode,
+    selectedTestImageId,
+    cachedGenerations,
+    setCachedGenerations
+  } = useAppStore();
   const [transformationOptions, setTransformationOptions] = useState([]);
   const [previewStates, setPreviewStates] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef(null);
+  const scrollViewRef = useRef(null);
 
   useEffect(() => {
     const lookingOptions = configLoader.getLookingOptions();
@@ -54,7 +63,50 @@ function EditLook() {
     }
   }, [identityPhoto, transformationOptions]);
 
+  useEffect(() => {
+    // Load cached results when cache mode is enabled and test image is selected
+    if (cacheMode && selectedTestImageId && transformationOptions.length > 0) {
+      loadCachedPreviews();
+    }
+  }, [cacheMode, selectedTestImageId, transformationOptions]);
+
+  const loadCachedPreviews = async () => {
+    try {
+      const cached = await cacheService.getCachedResults(selectedTestImageId);
+      setCachedGenerations(cached);
+      console.log('Loaded cached results for test image:', selectedTestImageId);
+
+      // Update preview states with cached results
+      const newPreviewStates = {};
+      transformationOptions.forEach(option => {
+        const cachedItem = cached.looking?.[option.id];
+        if (cachedItem) {
+          newPreviewStates[option.id] = {
+            loading: false,
+            imageUrl: cachedItem.generatedUrl,
+            error: null
+          };
+        } else {
+          newPreviewStates[option.id] = {
+            loading: false,
+            imageUrl: null,
+            error: 'No cached result available'
+          };
+        }
+      });
+      setPreviewStates(newPreviewStates);
+    } catch (error) {
+      console.error('Failed to load cached previews:', error);
+    }
+  };
+
   const generateAllPreviews = async () => {
+    // If cache mode is enabled, load from cache instead
+    if (cacheMode && selectedTestImageId) {
+      loadCachedPreviews();
+      return;
+    }
+
     if (!identityPhoto) {
       alert('Please upload an identity photo first');
       setCurrentStep('upload');
@@ -130,15 +182,11 @@ function EditLook() {
     setIsGenerating(false);
   };
 
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index || 0);
-    }
-  }).current;
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50
-  }).current;
+  const handleScroll = (event) => {
+    const scrollPosition = event.nativeEvent.contentOffset.x;
+    const index = Math.round(scrollPosition / screenWidth);
+    setCurrentIndex(index);
+  };
 
   const handleSelectTransformation = (transformationType) => {
     setSelectedTransformation(transformationType);
@@ -240,24 +288,60 @@ function EditLook() {
         >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>SELECT YOUR STYLE</Text>
+        <Text style={styles.title}>Choose Style</Text>
       </View>
 
       <View style={styles.carouselSection}>
-        <FlatList
-          ref={flatListRef}
-          data={transformationOptions}
-          renderItem={renderCarouselItem}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          snapToAlignment="center"
-          decelerationRate="fast"
-          scrollEnabled={true}
-        />
+        {Platform.OS === 'web' ? (
+          <>
+            <style>{`
+              .carousel-container::-webkit-scrollbar {
+                display: none;
+              }
+              .carousel-container {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
+            <div
+              ref={scrollViewRef}
+              className="carousel-container"
+              onScroll={(e) => handleScroll({ nativeEvent: { contentOffset: { x: e.target.scrollLeft } } })}
+              style={{
+                display: 'flex',
+                overflowX: 'scroll',
+                scrollSnapType: 'x mandatory',
+                scrollBehavior: 'smooth',
+                WebkitOverflowScrolling: 'touch',
+                width: '100%',
+                height: '100%',
+                cursor: 'grab',
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.cursor = 'grabbing';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.cursor = 'grab';
+              }}
+            >
+              {transformationOptions.map((option) => (
+                <div
+                  key={option.id}
+                  style={{
+                    scrollSnapAlign: 'center',
+                    flex: '0 0 100%',
+                    width: '100vw',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  {renderCarouselItem({ item: option })}
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
 
         {renderPaginationDots()}
 
@@ -286,10 +370,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+    top: 0,
     bottom: 0,
-    height: '50%',
-    backgroundColor: '#1a0a2e',
-    opacity: 0.6,
+    background: 'linear-gradient(180deg, rgba(194, 190, 255, 0) 0%, rgba(194, 190, 255, 0.76) 100%)',
+    pointerEvents: 'none',
+    zIndex: 0,
   },
   header: {
     paddingTop: 60,
@@ -313,17 +398,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '900',
     color: '#ffffff',
     textAlign: 'center',
-    letterSpacing: 2,
+    letterSpacing: 1,
+    fontFamily: Platform.select({
+      web: "'Helvetica Neue', 'Arial Black', sans-serif",
+      default: 'System',
+    }),
   },
   carouselSection: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
+  },
+  scrollViewContent: {
+    alignItems: 'center',
   },
   carouselItemContainer: {
     width: screenWidth,
@@ -334,14 +426,19 @@ const styles = StyleSheet.create({
   carouselCard: {
     width: screenWidth - 80,
     height: screenHeight * 0.55,
-    borderRadius: 30,
+    borderRadius: 19,
     overflow: 'hidden',
     backgroundColor: '#1a1a1a',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
+    shadowColor: 'rgba(194, 190, 255, 0.76)',
+    shadowOffset: { width: 8, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 4.5,
     elevation: 10,
+    ...Platform.select({
+      web: {
+        boxShadow: '8px 4px 4.5px rgba(194, 190, 255, 0.76)',
+      },
+    }),
   },
   carouselImage: {
     width: '100%',
@@ -441,11 +538,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   selectButton: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 40,
+    backgroundColor: '#000000',
+    marginHorizontal: 116,
     marginBottom: 50,
-    paddingVertical: 20,
-    borderRadius: 50,
+    paddingVertical: 18,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -454,15 +551,27 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
     zIndex: 1,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
+      },
+    }),
   },
   selectButtonDisabled: {
     opacity: 0.6,
   },
   selectButtonText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#000000',
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#ffffff',
     letterSpacing: 2,
+    textTransform: 'uppercase',
+    lineHeight: 31.02,
+    fontFamily: Platform.select({
+      web: "'Helvetica Neue', 'Arial Black', sans-serif",
+      default: 'System',
+    }),
   },
 });
 

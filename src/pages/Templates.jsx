@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, FlatList, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Dimensions, Platform } from 'react-native';
 import useAppStore from '../stores/appStore';
 import supabaseApi from '../services/supabaseApi';
+import cacheService from '../services/cacheService';
 import { configLoader } from '../utils/configLoader';
 import { styleTemplateImages } from '../assets/style-templates';
 
@@ -11,13 +12,29 @@ function Templates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef(null);
-  const { identityPhoto, selectedTransformation, setSelectedTemplate, addGeneratedPhoto, setCurrentStep } = useAppStore();
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  const {
+    identityPhoto,
+    selectedTransformation,
+    setSelectedTemplate,
+    addGeneratedPhoto,
+    setCurrentStep,
+    cacheMode,
+    selectedTestImageId,
+    cachedGenerations,
+    setCachedGenerations
+  } = useAppStore();
 
   useEffect(() => {
     loadTemplates();
   }, []);
+
+  useEffect(() => {
+    // Load cached results when cache mode is enabled and test image is selected
+    if (cacheMode && selectedTestImageId) {
+      loadCachedResults();
+    }
+  }, [cacheMode, selectedTestImageId]);
 
   const loadTemplates = async () => {
     try {
@@ -39,88 +56,82 @@ function Templates() {
     }
   };
 
-  const handleSelectTemplate = async (template) => {
+  const loadCachedResults = async () => {
+    try {
+      const cached = await cacheService.getCachedResults(selectedTestImageId);
+      setCachedGenerations(cached);
+      console.log('Loaded cached results for test image:', selectedTestImageId);
+    } catch (error) {
+      console.error('Failed to load cached results:', error);
+    }
+  };
+
+  const handleSelectTemplate = async (index, template) => {
     if (!identityPhoto || !selectedTransformation) {
       alert('Please complete previous steps first');
       return;
     }
 
+    setSelectedIndex(index);
     setGenerating(true);
     try {
-      console.log('Generating transformation with:', {
-        photoUrl: identityPhoto.url,
-        transformation: selectedTransformation,
-        visualStyle: template.id
-      });
-
       setSelectedTemplate(template.id);
 
-      // Call Supabase edge function to transform image
-      const result = await supabaseApi.transformImage(
-        identityPhoto.url,
-        selectedTransformation,
-        template.id
-      );
+      let imageUrl;
 
-      console.log('Transformation result:', result);
+      // Check if cache mode is enabled
+      if (cacheMode && selectedTestImageId && cachedGenerations?.templates?.[template.id]) {
+        console.log('Using cached template result:', template.id);
+        imageUrl = cachedGenerations.templates[template.id].generatedUrl;
+      } else {
+        console.log('Generating transformation with:', {
+          photoUrl: identityPhoto.url,
+          transformation: selectedTransformation,
+          visualStyle: template.id
+        });
 
-      if (result.success) {
+        // Call Supabase edge function to transform image
+        const result = await supabaseApi.transformImage(
+          identityPhoto.url,
+          selectedTransformation,
+          template.id
+        );
+
+        console.log('Transformation result:', result);
+
+        if (result.success) {
+          imageUrl = result.imageUrl;
+        } else {
+          throw new Error(result.error || 'Transformation failed');
+        }
+      }
+
+      if (imageUrl) {
         addGeneratedPhoto({
-          id: result.transformationId || `transform-${Date.now()}`,
-          url: result.imageUrl,
+          id: `transform-${Date.now()}`,
+          url: imageUrl,
           type: selectedTransformation,
           template: template.id,
-          description: result.description || '',
+          description: '',
         });
         setCurrentStep('create-post');
-      } else {
-        throw new Error(result.error || 'Transformation failed');
       }
     } catch (error) {
       console.error('Generation failed:', error);
       alert(`Failed to generate transformation: ${error.message}. Please try again.`);
+      setSelectedIndex(null);
     } finally {
       setGenerating(false);
     }
   };
 
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index || 0);
-    }
-  }).current;
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50
-  }).current;
-
   const handleSelectCurrentTemplate = () => {
-    if (templates[currentIndex]) {
-      handleSelectTemplate(templates[currentIndex]);
+    if (selectedIndex !== null && templates[selectedIndex]) {
+      handleSelectTemplate(selectedIndex, templates[selectedIndex]);
+    } else {
+      alert('Please select a template first');
     }
   };
-
-  const renderCarouselItem = ({ item }) => (
-    <View style={styles.carouselItemContainer}>
-      <View style={styles.carouselCard}>
-        <Image source={item.thumbnail} style={styles.carouselImage} resizeMode="cover" />
-      </View>
-    </View>
-  );
-
-  const renderPaginationDots = () => (
-    <View style={styles.paginationContainer}>
-      {templates.map((_, index) => (
-        <View
-          key={index}
-          style={[
-            styles.paginationDot,
-            currentIndex === index && styles.paginationDotActive
-          ]}
-        />
-      ))}
-    </View>
-  );
 
   if (loading) {
     return (
@@ -139,39 +150,68 @@ function Templates() {
         <TouchableOpacity onPress={() => setCurrentStep('edit-look')} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>SELECT YOUR STYLE</Text>
+        <Text style={styles.title}>Select Template</Text>
       </View>
 
-      <View style={styles.carouselSection}>
-        <FlatList
-          ref={flatListRef}
-          data={templates}
-          renderItem={renderCarouselItem}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          snapToAlignment="center"
-          decelerationRate="fast"
-        />
-
-        {renderPaginationDots()}
-      </View>
-
-      <TouchableOpacity
-        style={[styles.selectButton, generating && styles.selectButtonDisabled]}
-        onPress={handleSelectCurrentTemplate}
-        disabled={generating}
-        activeOpacity={0.8}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
       >
-        {generating ? (
-          <ActivityIndicator size="small" color="#ffffff" />
-        ) : (
-          <Text style={styles.selectButtonText}>SELECT</Text>
-        )}
-      </TouchableOpacity>
+        <View style={styles.gridContainer}>
+          {/* Create your style card - first item */}
+          <TouchableOpacity
+            style={[styles.gridCard, styles.createCard]}
+            activeOpacity={0.9}
+            onPress={() => setCurrentStep('upload')}
+          >
+            <View style={styles.createCardOverlay}>
+              <Text style={styles.createCardText}>create your style</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Template cards */}
+          {templates.map((template, index) => (
+            <TouchableOpacity
+              key={template.id}
+              style={[
+                styles.gridCard,
+                selectedIndex === index && styles.gridCardSelected
+              ]}
+              onPress={() => setSelectedIndex(index)}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={template.thumbnail}
+                style={styles.gridCardImage}
+                resizeMode="cover"
+              />
+              {selectedIndex === index && (
+                <View style={styles.selectedOverlay}>
+                  <View style={styles.selectedCheckmark}>
+                    <Text style={styles.selectedCheckmarkText}>✓</Text>
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+
+      <View style={styles.bottomButtonContainer}>
+        <TouchableOpacity
+          style={[styles.selectButton, (generating || selectedIndex === null) && styles.selectButtonDisabled]}
+          onPress={handleSelectCurrentTemplate}
+          disabled={generating || selectedIndex === null}
+          activeOpacity={0.8}
+        >
+          {generating ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <Text style={styles.selectButtonText}>SELECT</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
       {generating && (
         <View style={styles.generatingOverlay}>
@@ -195,16 +235,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+    top: 0,
     bottom: 0,
-    height: '50%',
-    backgroundColor: '#1a0a2e',
-    opacity: 0.6,
+    background: 'linear-gradient(180deg, rgba(194, 190, 255, 0) 61.96%, rgba(194, 190, 255, 0.76) 99.96%)',
+    pointerEvents: 'none',
+    zIndex: 0,
   },
   header: {
     paddingTop: 60,
     paddingHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
     zIndex: 1,
   },
   backButton: {
@@ -222,64 +263,112 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '900',
     color: '#ffffff',
     textAlign: 'center',
-    letterSpacing: 2,
+    letterSpacing: -0.4,
+    fontFamily: Platform.select({
+      web: "'Telka Extended', 'Archivo Black', 'Helvetica Neue', 'Arial Black', sans-serif",
+      default: 'System',
+    }),
   },
-  carouselSection: {
+  scrollView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     zIndex: 1,
   },
-  carouselItemContainer: {
-    width: screenWidth,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
+  scrollViewContent: {
+    paddingHorizontal: 33,
+    paddingTop: 10,
+    paddingBottom: 100,
   },
-  carouselCard: {
-    width: screenWidth - 80,
-    height: screenHeight * 0.55,
-    borderRadius: 30,
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 17,
+    justifyContent: 'flex-start',
+  },
+  gridCard: {
+    width: (screenWidth - 66 - 17) / 2,
+    height: 227,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#1a1a1a',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 10,
+    position: 'relative',
   },
-  carouselImage: {
+  gridCardSelected: {
+    borderWidth: 3,
+    borderColor: '#ffffff',
+  },
+  gridCardImage: {
     width: '100%',
     height: '100%',
   },
-  paginationContainer: {
-    flexDirection: 'row',
+  createCard: {
+    backgroundColor: 'rgba(40, 40, 40, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 30,
-    paddingVertical: 20,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(5.588px)',
+        WebkitBackdropFilter: 'blur(5.588px)',
+      },
+    }),
   },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    marginHorizontal: 4,
+  createCardOverlay: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  paginationDotActive: {
+  createCardText: {
+    fontSize: 15,
+    color: 'rgba(252, 250, 247, 0.7)',
+    fontFamily: Platform.select({
+      web: "'SF Pro', -apple-system, BlinkMacSystemFont, sans-serif",
+      default: 'System',
+    }),
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  selectedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedCheckmark: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#ffffff',
-    width: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedCheckmarkText: {
+    fontSize: 24,
+    color: '#000000',
+    fontWeight: 'bold',
+  },
+  bottomButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    pointerEvents: 'box-none',
   },
   selectButton: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 40,
-    marginBottom: 50,
-    paddingVertical: 20,
-    borderRadius: 50,
+    backgroundColor: '#000000',
+    width: 161,
+    height: 63,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -287,16 +376,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 5,
-    zIndex: 1,
+    pointerEvents: 'auto',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
+      },
+    }),
   },
   selectButtonDisabled: {
     opacity: 0.6,
   },
   selectButtonText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#000000',
-    letterSpacing: 2,
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+    lineHeight: 31,
+    fontFamily: Platform.select({
+      web: "'Telka Extended', 'Archivo Black', 'Helvetica Neue', 'Arial Black', sans-serif",
+      default: 'System',
+    }),
   },
   loadingContainer: {
     flex: 1,
@@ -318,6 +419,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   generatingBox: {
     backgroundColor: 'white',

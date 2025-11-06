@@ -37,6 +37,28 @@ const useAppStore = create((set) => ({
   // UI state
   currentStep: 'upload', // 'upload', 'edit-look', 'templates', 'create-post', 'feed'
   setCurrentStep: (step) => set({ currentStep: step }),
+
+  // Mobile frame state (for desktop view)
+  isMobileFrameEnabled: typeof window !== 'undefined'
+    ? localStorage.getItem('mobileFrameEnabled') !== 'false'
+    : true,
+  toggleMobileFrame: () => set((state) => {
+    const newValue = !state.isMobileFrameEnabled;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mobileFrameEnabled', String(newValue));
+    }
+    return { isMobileFrameEnabled: newValue };
+  }),
+
+  // Cache mode state
+  cacheMode: false, // true = use cached results, false = call API
+  setCacheMode: (enabled) => set({ cacheMode: enabled }),
+
+  selectedTestImageId: null, // Currently selected test image for cache
+  setSelectedTestImageId: (id) => set({ selectedTestImageId: id }),
+
+  cachedGenerations: {}, // Store cached generation results
+  setCachedGenerations: (data) => set({ cachedGenerations: data }),
 }));
 
 export default useAppStore;
