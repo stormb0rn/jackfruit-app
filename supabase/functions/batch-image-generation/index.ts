@@ -266,6 +266,28 @@ Deno.serve(async (req) => {
         identityPhotoId
       );
       results.push(result);
+
+      // Save successful generation to cached_generations table for reuse
+      if (result.status === 'completed' && result.imageUrl && identityPhotoId) {
+        try {
+          await supabase
+            .from('cached_generations')
+            .insert({
+              test_image_id: identityPhotoId,
+              test_image_url: identityPhotoUrl,
+              prompt_type: 'looking',
+              prompt_id: editStyle.id,
+              prompt_text: editStyle.prompt,
+              generated_image_url: [result.imageUrl],  // JSONB array format
+              is_admin_cache: false,
+              generation_source: 'edit_look'
+            });
+          console.log(`[batch-image-generation] Saved cache for ${editStyle.id}`);
+        } catch (cacheError) {
+          console.warn(`[batch-image-generation] Failed to save cache for ${editStyle.id}:`, cacheError);
+          // Don't fail the whole operation if caching fails
+        }
+      }
     }
 
     const successCount = results.filter((r) => r.status === "completed").length;

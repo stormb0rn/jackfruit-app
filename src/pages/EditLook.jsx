@@ -83,39 +83,46 @@ function EditLook() {
 
   const loadCachedPreviews = async () => {
     try {
-      console.log('Cache mode ON - loading random cached results for preview...');
+      console.log('Loading cached previews for identity photo:', identityPhoto?.id);
 
-      // Update preview states with random cached results
+      if (!identityPhoto || !identityPhoto.id) {
+        console.warn('Identity photo ID not available, cannot load cache');
+        return;
+      }
+
+      // Try to load user's previously generated results for this photo
+      const userResults = await cacheService.getUserCachedResults(identityPhoto.id, 'looking', false);
+
+      // If no user results, try to load admin cache for preview
+      const cachedResults = userResults || await cacheService.getUserCachedResults(identityPhoto.id, 'looking', true);
+
+      if (!cachedResults) {
+        console.log('No cached results found for this identity photo');
+        return;
+      }
+
+      // Update preview states with cached results
       const newPreviewStates = {};
 
       for (const option of transformationOptions) {
-        try {
-          const cachedUrl = await cacheService.getRandomCachedResult('edit_styles', option.id);
-          if (cachedUrl) {
-            newPreviewStates[option.id] = {
-              loading: false,
-              imageUrl: cachedUrl,
-              error: null
-            };
-          } else {
-            newPreviewStates[option.id] = {
-              loading: false,
-              imageUrl: null,
-              error: 'No cached results available'
-            };
-          }
-        } catch (error) {
-          console.error(`Failed to load cached preview for ${option.id}:`, error);
+        if (cachedResults[option.id]) {
+          newPreviewStates[option.id] = {
+            loading: false,
+            imageUrl: cachedResults[option.id],
+            error: null
+          };
+          console.log(`Loaded cached image for ${option.id}`);
+        } else {
           newPreviewStates[option.id] = {
             loading: false,
             imageUrl: null,
-            error: 'Failed to load cached result'
+            error: 'No cached result available for this option'
           };
         }
       }
 
       setPreviewStates(newPreviewStates);
-      console.log('Loaded random cached previews');
+      console.log('Loaded cached previews from database');
     } catch (error) {
       console.error('Failed to load cached previews:', error);
     }
@@ -170,7 +177,7 @@ function EditLook() {
             const editOption = transformationOptions.find(opt => opt.id === transformResult.editStyleId);
             if (editOption) {
               cacheService.saveUserGeneration({
-                testImageId: 'user_' + Date.now() + '_' + transformResult.editStyleId,
+                testImageId: identityPhoto.id,
                 testImageUrl: identityPhoto.url,
                 promptType: 'looking',
                 promptId: transformResult.editStyleId,

@@ -411,7 +411,7 @@ export const cacheService = {
   /**
    * Get a random cached result for a specific prompt
    * Used in demo mode to return mockup results
-   * @param {string} promptType - 'edit_styles' or 'templates'
+   * @param {string} promptType - 'looking' or 'templates'
    * @param {string} promptId - ID of the prompt
    * @returns {Promise<string|null>} - Random generated image URL or null
    */
@@ -435,6 +435,58 @@ export const cacheService = {
       return data[randomIndex].generated_image_url;
     } catch (error) {
       console.error('Failed to get random cached result:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Get cached results for a specific identity photo
+   * Used to load user's previously generated results for the same photo
+   * @param {string} testImageId - Identity photo ID
+   * @param {string} promptType - 'looking' or 'templates'
+   * @param {boolean} adminOnly - If true, only return admin cache; if false, only user cache
+   * @returns {Promise<object|null>} - Map of promptId to image URLs or null
+   */
+  getUserCachedResults: async (testImageId, promptType = 'looking', adminOnly = false) => {
+    try {
+      const query = supabase
+        .from('cached_generations')
+        .select('prompt_id, generated_image_url, is_admin_cache')
+        .eq('test_image_id', testImageId)
+        .eq('prompt_type', promptType);
+
+      // Filter by cache type
+      if (adminOnly) {
+        query.eq('is_admin_cache', true);
+      } else {
+        query.eq('is_admin_cache', false);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        console.log(`No ${adminOnly ? 'admin' : 'user'} cached results found for image ${testImageId}`);
+        return null;
+      }
+
+      // Convert to map: promptId -> first image URL from JSONB array
+      const resultMap = {};
+      data.forEach(item => {
+        if (item.generated_image_url) {
+          // Handle JSONB array format
+          const imageUrl = Array.isArray(item.generated_image_url)
+            ? item.generated_image_url[0]
+            : item.generated_image_url;
+          resultMap[item.prompt_id] = imageUrl;
+        }
+      });
+
+      console.log(`Loaded ${adminOnly ? 'admin' : 'user'} cached results:`, resultMap);
+      return Object.keys(resultMap).length > 0 ? resultMap : null;
+    } catch (error) {
+      console.error(`Failed to get ${adminOnly ? 'admin' : 'user'} cached results:`, error);
       return null;
     }
   }
