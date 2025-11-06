@@ -89,110 +89,17 @@ function Templates() {
     }
 
     setSelectedIndex(index);
-    setGenerating(true);
+
     try {
+      // Just set template and navigate - generation happens on /1st-post page
       setSelectedTemplate(template.id);
-
-      // Build the complete prompts with edit style + template
-      // For templates, returns array of 3 prompts; for edit look, returns single string
-      const prompts = configLoader.buildCompletePrompt(selectedTransformation, template.id);
-      const promptsArray = Array.isArray(prompts) ? prompts : [prompts];
-
-      console.log('Generated prompts:', promptsArray);
-
-      // Generate images using all prompts (3 for templates, 1 for edit look)
-      const generatedPhotos = [];
-
-      for (let i = 0; i < promptsArray.length; i++) {
-        const prompt = promptsArray[i];
-        let imageUrl;
-
-        // Check if cache mode is enabled - use random cached result (demo mode)
-        if (cacheMode) {
-          console.log(`Cache mode ON - using random cached result for template ${i + 1}/${promptsArray.length}:`, template.id);
-          imageUrl = await cacheService.getRandomCachedResult('templates', template.id);
-
-          if (!imageUrl) {
-            console.warn('No cached results found, falling back to API call');
-            // Fall back to real API if no cached results
-            const result = await supabaseApi.transformImage(
-              identityPhoto.url,
-              prompt,
-              selectedTransformation
-            );
-
-            if (result.success) {
-              imageUrl = result.imageUrl;
-            } else {
-              throw new Error(result.error || 'Transformation failed');
-            }
-          }
-        } else {
-          console.log(`Cache mode OFF - calling real API (${i + 1}/${promptsArray.length}) with:`, {
-            photoUrl: identityPhoto.url,
-            editStyleId: selectedTransformation,
-            templateId: template.id,
-            prompt: prompt
-          });
-
-          // Call Supabase edge function to transform image
-          const result = await supabaseApi.transformImage(
-            identityPhoto.url,
-            prompt,
-            selectedTransformation
-          );
-
-          console.log(`Transformation result (${i + 1}/${promptsArray.length}):`, result);
-
-          if (result.success) {
-            imageUrl = result.imageUrl;
-          } else {
-            throw new Error(result.error || `Transformation ${i + 1} failed`);
-          }
-        }
-
-        if (imageUrl) {
-          generatedPhotos.push({
-            id: `transform-${Date.now()}-${i}`,
-            url: imageUrl,
-            type: selectedTransformation,
-            template: template.id,
-            description: `Variant ${i + 1}`,
-            promptUsed: prompt
-          });
-        }
-      }
-
-      // Add all generated photos and navigate
-      if (generatedPhotos.length > 0) {
-        // Save user generation to database
-        const promptTexts = promptsArray.join(' | ');
-        const imageUrls = generatedPhotos.map(photo => photo.url);
-
-        cacheService.saveUserGeneration({
-          testImageId: `user_template_${Date.now()}_${template.id}`,
-          testImageUrl: identityPhoto.url,
-          promptType: 'templates',
-          promptId: template.id,
-          promptText: promptTexts,
-          generatedImageUrls: imageUrls,
-          generationSource: 'template'
-        }).catch(err => {
-          console.error('Failed to save template user generation:', err);
-          // Don't block the flow if database save fails
-        });
-
-        generatedPhotos.forEach(photo => addGeneratedPhoto(photo));
-        navigate('/1st-post');
-      } else {
-        throw new Error('No images were generated');
-      }
+      console.log('[Templates] Selected template:', template.id);
+      console.log('[Templates] Navigating to /1st-post for generation...');
+      navigate('/1st-post');
     } catch (error) {
-      console.error('Generation failed:', error);
-      alert(`Failed to generate transformation: ${error.message}. Please try again.`);
+      console.error('[Templates] Navigation error:', error);
+      alert('Failed to navigate. Please try again.');
       setSelectedIndex(null);
-    } finally {
-      setGenerating(false);
     }
   };
 
