@@ -147,13 +147,15 @@ function EditLook() {
         prompt: opt.prompt
       }));
 
-      // Call Supabase edge function for batch transformation
-      const result = await supabaseApi.batchTransform(
+      console.log('Prepared edit styles for batch generation:', JSON.stringify(editStyles, null, 2));
+
+      // Call Supabase edge function for batch image generation
+      const result = await supabaseApi.batchGenerateImages(
         identityPhoto.url,
         editStyles
       );
 
-      console.log('Batch transform result:', result);
+      console.log('Batch image generation result:', result);
 
       if (result.success) {
         // Update preview states with results

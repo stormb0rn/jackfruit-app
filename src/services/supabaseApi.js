@@ -56,53 +56,105 @@ export const supabaseApi = {
   },
 
   /**
-   * Call the batch-transform edge function to generate all edit style variations
+   * Call the batch-image-generation edge function to generate all edit style variations
+   * Includes validation and retry logic (retry once on failure)
    * @param {string} identityPhotoUrl - URL of the identity photo
    * @param {Array<{id: string, prompt: string}>} editStyles - Array of edit styles with id and prompt
-   * @returns {Promise<object>} Batch transformation results
+   * @returns {Promise<object>} Batch image generation results
+   */
+  batchGenerateImages: async (identityPhotoUrl, editStyles) => {
+    const maxRetries = 1;
+    let lastError = null;
+
+    // Validate inputs
+    if (!identityPhotoUrl) {
+      throw new Error('Identity photo URL is required');
+    }
+
+    if (!Array.isArray(editStyles) || editStyles.length === 0) {
+      throw new Error('Edit styles array is required and must not be empty');
+    }
+
+    // Validate all edit styles have required fields
+    const invalidStyles = editStyles.filter(style => !style.id || !style.prompt);
+    if (invalidStyles.length > 0) {
+      console.error('[supabaseApi] Invalid edit styles detected:', invalidStyles);
+      throw new Error(`Some edit styles are missing required fields: ${invalidStyles.map(s => s.id).join(', ')}`);
+    }
+
+    // Retry logic
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[supabaseApi] Starting batch image generation (attempt ${attempt + 1}/${maxRetries + 1})...`);
+        console.log('[supabaseApi] Identity photo URL:', identityPhotoUrl);
+        console.log('[supabaseApi] Edit styles:', JSON.stringify(editStyles, null, 2));
+
+        // Get user (optional - edge function works without auth)
+        let userId = null;
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          userId = user?.id;
+          console.log('[supabaseApi] User ID:', userId || 'No user authenticated');
+        } catch (authError) {
+          console.warn('[supabaseApi] No authenticated user, proceeding without userId:', authError);
+        }
+
+        console.log('[supabaseApi] Invoking batch-image-generation edge function...');
+
+        const { data, error } = await supabase.functions.invoke('batch-image-generation', {
+          body: {
+            identityPhotoUrl,
+            editStyles,
+            userId,
+          },
+        });
+
+        console.log('[supabaseApi] Edge function response:', { data, error });
+
+        if (error) {
+          lastError = new Error(`Edge Function Error: ${error.message || JSON.stringify(error)}`);
+          console.error('[supabaseApi] Edge function error:', lastError);
+
+          if (attempt < maxRetries) {
+            console.log(`[supabaseApi] Retrying (${attempt + 1}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            continue;
+          }
+          throw lastError;
+        }
+
+        if (!data) {
+          lastError = new Error('No data returned from edge function');
+          console.error('[supabaseApi] No data error:', lastError);
+
+          if (attempt < maxRetries) {
+            console.log(`[supabaseApi] Retrying (${attempt + 1}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+          throw lastError;
+        }
+
+        console.log('[supabaseApi] Batch image generation successful');
+        return data;
+      } catch (error) {
+        lastError = error;
+        if (attempt === maxRetries) {
+          console.error('[supabaseApi] Batch image generation failed after retries:', error);
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
+  },
+
+  /**
+   * Legacy alias for batchGenerateImages (deprecated)
+   * @deprecated Use batchGenerateImages instead
    */
   batchTransform: async (identityPhotoUrl, editStyles) => {
-    try {
-      console.log('[supabaseApi] Starting batchTransform...');
-      console.log('[supabaseApi] Identity photo URL:', identityPhotoUrl);
-      console.log('[supabaseApi] Edit styles:', editStyles);
-
-      // Get user (optional - edge function works without auth)
-      let userId = null;
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        userId = user?.id;
-        console.log('[supabaseApi] User ID:', userId || 'No user authenticated');
-      } catch (authError) {
-        console.warn('[supabaseApi] No authenticated user, proceeding without userId:', authError);
-      }
-
-      console.log('[supabaseApi] Invoking batch-transform edge function...');
-
-      const { data, error } = await supabase.functions.invoke('batch-transform', {
-        body: {
-          identityPhotoUrl,
-          editStyles,
-          userId,
-        },
-      });
-
-      console.log('[supabaseApi] Edge function response:', { data, error });
-
-      if (error) {
-        console.error('[supabaseApi] Edge function error:', error);
-        throw new Error(`Edge Function Error: ${error.message || JSON.stringify(error)}`);
-      }
-
-      if (!data) {
-        throw new Error('No data returned from edge function');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('[supabaseApi] Batch transform error:', error);
-      throw error;
-    }
+    return supabaseApi.batchGenerateImages(identityPhotoUrl, editStyles);
   },
 
   /**
