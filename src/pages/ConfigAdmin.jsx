@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal, Image, Switch, ActivityIndicator } from 'react-native';
-import transformationConfig from '../config/transformation_prompts.json';
-import styleTemplatesConfig from '../config/style_templates.json';
 import { supabase } from '../services/supabaseClient';
-import { falApi } from '../services/falApi';
 import cacheService from '../services/cacheService';
 import settingsService from '../services/settingsService';
 import configService from '../services/configService';
@@ -37,7 +34,7 @@ const getTemplateImageUrl = (imagePath) => {
 };
 
 // Sortable Item Component for drag-and-drop
-function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegenerate, isLoading, cachedResult }) {
+function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegenerate, onRestore, isLoading, cachedResult, isDeleted }) {
   const {
     attributes,
     listeners,
@@ -56,15 +53,17 @@ function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegene
   const isTemplate = type === 'templates';
 
   return (
-    <View ref={setNodeRef} style={[styles.itemCard, isTemplate && styles.itemCardTemplate, style]}>
-      {/* Drag handle */}
-      <View {...listeners} {...attributes} style={styles.dragHandle}>
-        <Text style={styles.dragHandleIcon}>⋮⋮</Text>
-      </View>
+    <View ref={setNodeRef} style={[styles.itemCard, isTemplate && styles.itemCardTemplate, isDeleted && styles.itemCardDeleted, style]}>
+      {/* Drag handle - hidden for deleted items */}
+      {!isDeleted && (
+        <View {...listeners} {...attributes} style={styles.dragHandle}>
+          <Text style={styles.dragHandleIcon}>⋮⋮</Text>
+        </View>
+      )}
 
-      {item.image && (
+      {item.image_path && (
         <Image
-          source={{ uri: getTemplateImageUrl(item.image) }}
+          source={{ uri: getTemplateImageUrl(item.image_path) }}
           style={isTemplate ? styles.templateImageVertical : styles.templateImage}
           resizeMode="cover"
         />
@@ -73,51 +72,69 @@ function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegene
       <View style={styles.itemHeader}>
         <Text style={styles.itemName}>{item.name}</Text>
         <View style={styles.itemActions}>
-          <Switch
-            value={item.enabled}
-            onValueChange={() => onToggle(type, id)}
-            trackColor={{ false: '#d2d2d7', true: '#34c759' }}
-            thumbColor="#fff"
-            style={styles.switch}
-          />
-          <TouchableOpacity
-            onPress={() => onRegenerate(type, id, item)}
-            style={styles.textButton}
-            activeOpacity={0.7}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.textButtonText}>Regenerate</Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => onEdit(type, id)}
-            style={styles.textButton}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.textButtonText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => onDelete(type, id)}
-            style={[styles.textButton, styles.deleteButton]}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.textButtonText}>Delete</Text>
-          </TouchableOpacity>
+          {isDeleted ? (
+            <TouchableOpacity
+              onPress={() => onRestore(id)}
+              style={[styles.textButton, styles.restoreButton]}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.textButtonText}>Restore</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <Switch
+                value={item.enabled}
+                onValueChange={() => onToggle(type, id)}
+                trackColor={{ false: '#d2d2d7', true: '#34c759' }}
+                thumbColor="#fff"
+                style={styles.switch}
+              />
+              <TouchableOpacity
+                onPress={() => onRegenerate(type, id, item)}
+                style={styles.textButton}
+                activeOpacity={0.7}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.textButtonText}>Regenerate</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => onEdit(type, id)}
+                style={styles.textButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.textButtonText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => onDelete(type, id)}
+                style={[styles.textButton, styles.deleteButton]}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.textButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 
       <Text style={styles.itemPrompt}>
-        {item.prompt}
+        {isTemplate && item.prompts ? item.prompts[0] : item.prompts?.[0] || ''}
       </Text>
 
-      <Text style={[styles.enabledStatus, item.enabled ? styles.enabled : styles.disabled]}>
-        {item.enabled ? '● Enabled' : '○ Disabled'}
-      </Text>
+      {!isDeleted && (
+        <Text style={[styles.enabledStatus, item.enabled ? styles.enabled : styles.disabled]}>
+          {item.enabled ? '● Enabled' : '○ Disabled'}
+        </Text>
+      )}
 
-      {cachedResult && cachedResult.generatedUrl && (
+      {isDeleted && (
+        <Text style={styles.deletedBadge}>Deleted</Text>
+      )}
+
+      {cachedResult && cachedResult.generatedUrl && !isDeleted && (
         <View style={styles.testResultInline}>
           <Text style={styles.testResultLabel}>Cached Result:</Text>
           <Image
@@ -136,14 +153,16 @@ function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegene
 
 function ConfigAdmin() {
   const [config, setConfig] = useState({ looking: {}, templates: {} });
+  const [deletedItems, setDeletedItems] = useState({ looking: {}, templates: {} });
+  const [activeTab, setActiveTab] = useState('looking'); // 'looking', 'templates', 'deleted'
   const [modalVisible, setModalVisible] = useState(false);
   const [currentType, setCurrentType] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     id: '',
     name: '',
-    prompt: '',
-    image: '',
+    prompts: ['', '', ''],
+    image_path: '',
     enabled: true
   });
 
@@ -175,7 +194,6 @@ function ConfigAdmin() {
   const [uploadedImagePreview, setUploadedImagePreview] = useState(null);
 
   // Test results - keyed by item id
-  const [testResults, setTestResults] = useState({});
   const [testingInProgress, setTestingInProgress] = useState({});
 
   // Drag-and-drop sensors
@@ -202,67 +220,39 @@ function ConfigAdmin() {
 
   const loadConfig = async () => {
     try {
-      // Initialize defaults in Supabase if needed
-      await configService.initializeDefaults();
-
-      // Load from Supabase (falls back to JSON files if empty)
+      // Load from Supabase using new API
       const [lookingData, templatesData] = await Promise.all([
-        configService.loadConfig('looking'),
-        configService.loadConfig('templates')
+        configService.loadItems('looking'),
+        configService.loadItems('templates')
       ]);
 
-      // Add enabled flag to all items if not present
-      const lookingWithEnabled = {};
-      Object.entries(lookingData).forEach(([key, value]) => {
-        lookingWithEnabled[key] = {
-          ...value,
-          enabled: value.enabled !== undefined ? value.enabled : true
-        };
-      });
-
-      const templatesWithEnabled = {};
-      Object.entries(templatesData).forEach(([key, value]) => {
-        templatesWithEnabled[key] = {
-          ...value,
-          enabled: value.enabled !== undefined ? value.enabled : true
-        };
-      });
-
       setConfig({
-        looking: lookingWithEnabled,
-        templates: templatesWithEnabled
+        looking: lookingData,
+        templates: templatesData
       });
 
       console.log('✅ Configuration loaded from Supabase');
     } catch (error) {
       console.error('Failed to load config from Supabase:', error);
-      // Fallback to JSON files on error
-      loadConfigFromJSON();
     }
   };
 
-  const loadConfigFromJSON = () => {
-    // Fallback: Load from local JSON files
-    const lookingWithEnabled = {};
-    Object.entries(transformationConfig.edit_options || {}).forEach(([key, value]) => {
-      lookingWithEnabled[key] = {
-        ...value,
-        enabled: value.enabled !== undefined ? value.enabled : true
-      };
-    });
+  const loadDeletedItems = async () => {
+    try {
+      const [lookingDeleted, templatesDeleted] = await Promise.all([
+        configService.getDeletedItems('looking'),
+        configService.getDeletedItems('templates')
+      ]);
 
-    const templatesWithEnabled = {};
-    Object.entries(styleTemplatesConfig.templates || {}).forEach(([key, value]) => {
-      templatesWithEnabled[key] = {
-        ...value,
-        enabled: value.enabled !== undefined ? value.enabled : true
-      };
-    });
+      setDeletedItems({
+        looking: lookingDeleted,
+        templates: templatesDeleted
+      });
 
-    setConfig({
-      looking: lookingWithEnabled,
-      templates: templatesWithEnabled
-    });
+      console.log('✅ Loaded deleted items');
+    } catch (error) {
+      console.error('Failed to load deleted items:', error);
+    }
   };
 
   const loadCachedResults = async (testImageId) => {
@@ -299,7 +289,6 @@ function ConfigAdmin() {
     } catch (error) {
       console.error('❌ Failed to load cached results:', error);
 
-      // Check if it's a table not found error
       if (error.code === 'PGRST205' || error.message?.includes('cached_generations')) {
         alert('⚠️ Database table not found. Please ensure the migration has been applied and the PostgREST schema cache has been refreshed.');
       }
@@ -312,11 +301,9 @@ function ConfigAdmin() {
 
   const handleCacheModeToggle = async (enabled) => {
     try {
-      // Update global cache mode in Supabase
       const success = await settingsService.setGlobalCacheMode(enabled);
 
       if (success) {
-        // Update local state (will also be updated via real-time subscription in App.jsx)
         setCacheMode(enabled);
         console.log('✅ Global cache mode updated:', enabled);
       } else {
@@ -353,13 +340,10 @@ function ConfigAdmin() {
 
       console.log(`✅ Found ${files.length} test images`);
 
-      // Convert files to test image objects
       const loadedImages = files.map(file => {
-        // Extract timestamp from filename (e.g., "1762393507962-vh5lhk.jpg" -> "1762393507962")
         const timestamp = file.name.split('-')[0];
         const testImageId = `test-${timestamp}`;
 
-        // Generate public URL
         const { data: urlData } = supabase.storage
           .from('identity-photos')
           .getPublicUrl(`anonymous/test-images/${file.name}`);
@@ -374,10 +358,8 @@ function ConfigAdmin() {
         };
       });
 
-      // Update state with loaded images
       setTestImages(loadedImages);
 
-      // Auto-select the first (most recent) image
       if (loadedImages.length > 0) {
         setSelectedTestImageIndex(0);
         console.log(`📌 Auto-selected most recent image: ${loadedImages[0].fileName}`);
@@ -390,9 +372,7 @@ function ConfigAdmin() {
   const generateNextStyleId = (type) => {
     const existingIds = Object.keys(config[type] || {});
 
-    // Generate auto-incrementing ID for looking (Edit Look) type
     if (type === 'looking') {
-      // Extract numbers from existing style_id_xxx IDs
       const numbers = existingIds
         .filter(id => id.startsWith('style_id_'))
         .map(id => {
@@ -401,16 +381,13 @@ function ConfigAdmin() {
         })
         .filter(num => !isNaN(num));
 
-      // Find the next available number
       const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
       const nextNumber = maxNumber + 1;
 
       return `style_id_${String(nextNumber).padStart(3, '0')}`;
     }
 
-    // Generate auto-incrementing ID for templates (Aesthetic Templates) type
     if (type === 'templates') {
-      // Extract numbers from existing template_id_xxx IDs
       const numbers = existingIds
         .filter(id => id.startsWith('template_id_'))
         .map(id => {
@@ -419,7 +396,6 @@ function ConfigAdmin() {
         })
         .filter(num => !isNaN(num));
 
-      // Find the next available number
       const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
       const nextNumber = maxNumber + 1;
 
@@ -438,23 +414,23 @@ function ConfigAdmin() {
       setFormData({
         id: item.id,
         name: item.name,
-        prompt: item.prompt || '',
-        image: item.image || '',
+        prompts: item.prompts || ['', '', ''],
+        image_path: item.image_path || '',
         enabled: item.enabled !== undefined ? item.enabled : true
       });
     } else {
-      // Auto-generate ID for new items
       const autoId = generateNextStyleId(type);
 
       setFormData({
         id: autoId,
         name: '',
-        prompt: '',
-        image: '',
+        prompts: ['', '', ''],
+        image_path: '',
         enabled: true
       });
     }
 
+    setUploadedImagePreview(null);
     setModalVisible(true);
   };
 
@@ -463,38 +439,39 @@ function ConfigAdmin() {
     setFormData({
       id: '',
       name: '',
-      prompt: '',
-      image: '',
+      prompts: ['', '', ''],
+      image_path: '',
       enabled: true
     });
     setEditingId(null);
+    setUploadedImagePreview(null);
   };
 
   const saveItem = async () => {
-    const newConfig = { ...config };
+    // Prepare prompts array
+    const cleanedPrompts = currentType === 'templates'
+      ? formData.prompts.filter(p => p.trim() !== '')
+      : [formData.prompts[0]]; // Edit Look only uses first prompt
 
-    if (editingId && editingId !== formData.id) {
-      delete newConfig[currentType][editingId];
-    }
-
-    newConfig[currentType][formData.id] = {
-      id: formData.id,
+    const itemData = {
       name: formData.name,
-      prompt: formData.prompt,
+      prompts: cleanedPrompts,
+      image_path: currentType === 'templates' ? formData.image_path : null,
       enabled: formData.enabled,
-      ...(currentType === 'templates' && { image: formData.image })
+      display_order: config[currentType][formData.id]?.display_order || Object.keys(config[currentType]).length
     };
 
-    setConfig(newConfig);
+    // Save to Supabase
+    const success = await configService.saveItem(currentType, formData.id, itemData);
 
-    // Auto-save to Supabase
-    const success = await configService.saveConfig(currentType, newConfig[currentType]);
     if (!success) {
-      alert('Warning: Failed to save configuration to database. Changes are only stored locally.');
-    } else {
-      // Refresh global configuration in store
-      await refreshConfig();
+      alert('Warning: Failed to save configuration to database. Please try again.');
+      return;
     }
+
+    // Refresh local config
+    await loadConfig();
+    await refreshConfig();
 
     closeModal();
   };
@@ -504,26 +481,48 @@ function ConfigAdmin() {
 
     if (!confirmed) return;
 
-    const newConfig = { ...config };
-    delete newConfig[type][id];
-    setConfig(newConfig);
+    const success = await configService.deleteItem(id);
 
-    // Auto-save to Supabase
-    await configService.saveConfig(type, newConfig[type]);
+    if (!success) {
+      alert('Failed to delete item. Please try again.');
+      return;
+    }
 
-    // Refresh global configuration in store
+    // Refresh local config
+    await loadConfig();
+    await refreshConfig();
+  };
+
+  const restoreItem = async (id) => {
+    const success = await configService.restoreItem(id);
+
+    if (!success) {
+      alert('Failed to restore item. Please try again.');
+      return;
+    }
+
+    // Refresh configs
+    await loadConfig();
+    await loadDeletedItems();
     await refreshConfig();
   };
 
   const toggleEnabled = async (type, id) => {
-    const newConfig = { ...config };
-    newConfig[type][id].enabled = !newConfig[type][id].enabled;
-    setConfig(newConfig);
+    const item = config[type][id];
+    const updatedItem = {
+      ...item,
+      enabled: !item.enabled
+    };
 
-    // Auto-save to Supabase
-    await configService.saveConfig(type, newConfig[type]);
+    const success = await configService.saveItem(type, id, updatedItem);
 
-    // Refresh global configuration in store
+    if (!success) {
+      alert('Failed to toggle enabled status. Please try again.');
+      return;
+    }
+
+    // Refresh local config
+    await loadConfig();
     await refreshConfig();
   };
 
@@ -535,7 +534,7 @@ function ConfigAdmin() {
     }
 
     const items = Object.entries(config[type]);
-    const sortedItems = items.sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
+    const sortedItems = items.sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0));
 
     const oldIndex = sortedItems.findIndex(([key]) => key === active.id);
     const newIndex = sortedItems.findIndex(([key]) => key === over.id);
@@ -546,18 +545,23 @@ function ConfigAdmin() {
 
     const reorderedItems = arrayMove(sortedItems, oldIndex, newIndex);
 
-    // Update order field for all items
-    const newConfig = { ...config };
-    reorderedItems.forEach(([key, value], index) => {
-      newConfig[type][key] = { ...value, order: index };
-    });
+    // Update display_order for all items
+    const itemsWithNewOrder = reorderedItems.map(([key, value], index) => ({
+      id: key,
+      ...value,
+      display_order: index
+    }));
 
-    setConfig(newConfig);
+    // Save order to Supabase
+    const success = await configService.updateOrder(type, itemsWithNewOrder);
 
-    // Auto-save to Supabase
-    await configService.saveConfig(type, newConfig[type]);
+    if (!success) {
+      alert('Failed to update order. Please try again.');
+      return;
+    }
 
-    // Refresh global configuration in store
+    // Refresh local config
+    await loadConfig();
     await refreshConfig();
     console.log(`✅ Updated order for ${type}`);
   };
@@ -586,7 +590,6 @@ function ConfigAdmin() {
             setTestImages([...testImages, newImage]);
             setSelectedTestImageIndex(testImages.length);
 
-            // Auto-generate cache for this test image
             await handleBatchGenerate(newImage);
           };
           reader.readAsDataURL(file);
@@ -615,7 +618,6 @@ function ConfigAdmin() {
         }
       );
 
-      // Show detailed results
       const successCount = results.success.length;
       const failedCount = results.failed.length;
 
@@ -624,12 +626,10 @@ function ConfigAdmin() {
       if (successCount > 0 || failedCount === 0) {
         alert(`Batch Generation Complete\n\n✅ Successfully generated ${successCount} out of ${results.total} prompts.${failedCount > 0 ? `\n⚠️ Failed: ${failedCount}` : ''}`);
       } else {
-        // All failed
         const errorMsg = results.failed[0]?.error || 'Unknown error';
         alert(`Batch Generation Failed\n\n❌ All generations failed.\nError: ${errorMsg}\n\nPlease check console for details.`);
       }
 
-      // Reload cached results
       await loadCachedResults(testImage.id);
     } catch (error) {
       console.error('❌ Batch generation error:', error);
@@ -674,7 +674,6 @@ function ConfigAdmin() {
   const removeTestImage = async (index) => {
     const image = testImages[index];
 
-    // Use window.confirm for web compatibility
     const confirmed = window.confirm(
       'Confirm Delete\n\nThis will also delete all cached generations for this image. Continue?'
     );
@@ -688,8 +687,6 @@ function ConfigAdmin() {
         id: image.id
       });
 
-      // Remove from Supabase storage
-      console.log('Attempting to delete from storage...');
       const { data, error } = await supabase.storage
         .from('identity-photos')
         .remove([image.filePath]);
@@ -701,7 +698,6 @@ function ConfigAdmin() {
         throw new Error(`Storage deletion failed: ${error.message}`);
       }
 
-      // Verify deletion
       const { data: files, error: listError } = await supabase.storage
         .from('identity-photos')
         .list('anonymous/test-images');
@@ -715,7 +711,6 @@ function ConfigAdmin() {
 
       console.log('✅ Deleted from storage and verified');
 
-      // Delete cached generations
       try {
         await cacheService.deleteCacheForTestImage(image.id);
         console.log('✅ Deleted cached generations');
@@ -723,16 +718,13 @@ function ConfigAdmin() {
         console.warn('⚠️ Failed to delete cache, but continuing:', cacheError);
       }
 
-      // Remove from local state
       const newImages = testImages.filter((_, i) => i !== index);
       setTestImages(newImages);
 
-      // Adjust selected index if needed
       if (selectedTestImageIndex >= newImages.length) {
         setSelectedTestImageIndex(Math.max(0, newImages.length - 1));
       }
 
-      // Clear cached results if deleted image was selected
       if (selectedTestImageIndex === index) {
         setCachedResults({ looking: {}, templates: {} });
       }
@@ -758,9 +750,8 @@ function ConfigAdmin() {
     setTestingInProgress(prev => ({ ...prev, [itemKey]: true }));
 
     try {
-      const promptText = item.prompt;
+      const promptText = item.prompts?.[0] || '';
 
-      // For templates: use the selected Edit Look generated image as input
       if (type === 'templates') {
         if (!selectedEditLookUrl) {
           alert('Error\n\nPlease generate Edit Look cache first or select an Edit Look');
@@ -773,20 +764,18 @@ function ConfigAdmin() {
           editLookId: selectedEditLookId
         });
 
-        const result = await cacheService.regeneratePromptWithEditLook(
+        await cacheService.regeneratePromptWithEditLook(
           selectedEditLookUrl,
           selectedImage.id,
           id,
           promptText
         );
 
-        // Reload cached results
         await loadCachedResults(selectedImage.id);
 
         alert('Success\n\nTemplate regenerated using Edit Look image!');
       } else {
-        // For Edit Look: use the original test image
-        const result = await cacheService.regeneratePrompt(
+        await cacheService.regeneratePrompt(
           selectedImage.publicUrl,
           selectedImage.id,
           type,
@@ -794,7 +783,6 @@ function ConfigAdmin() {
           promptText
         );
 
-        // Reload cached results
         await loadCachedResults(selectedImage.id);
 
         alert('Success\n\nPrompt regenerated successfully!');
@@ -805,37 +793,6 @@ function ConfigAdmin() {
     } finally {
       setTestingInProgress(prev => ({ ...prev, [itemKey]: false }));
     }
-  };
-
-  const exportConfig = () => {
-    const transformData = {
-      config_name: "Edit Look Options",
-      description: "Configuration for different edit look variations",
-      edit_options: config.looking
-    };
-
-    const styleData = {
-      config_name: "Aesthetic Templates",
-      description: "Configuration for different aesthetic style templates",
-      templates: config.templates
-    };
-
-    // Download files
-    downloadJSON(transformData, 'transformation_prompts.json');
-    setTimeout(() => downloadJSON(styleData, 'style_templates.json'), 100);
-
-    alert('Success\n\nConfiguration exported successfully!');
-  };
-
-  const downloadJSON = (data, filename) => {
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
   };
 
   const handleEditLookSelection = (editLookId) => {
@@ -855,7 +812,6 @@ function ConfigAdmin() {
       const file = e.target.files[0];
       if (!file) return;
 
-      // 文件大小验证（5MB 限制）
       if (file.size > 5 * 1024 * 1024) {
         alert('File too large. Maximum size is 5MB.');
         return;
@@ -864,31 +820,27 @@ function ConfigAdmin() {
       setIsUploadingTemplateImage(true);
 
       try {
-        // 生成文件名（小写，空格改为连字符）
         const fileExt = file.name.split('.').pop().toLowerCase();
         const baseName = file.name
-          .replace(/\.[^/.]+$/, '') // 移除扩展名
+          .replace(/\.[^/.]+$/, '')
           .toLowerCase()
-          .replace(/\s+/g, '-')      // 空格改为连字符
-          .replace(/[^a-z0-9-]/g, ''); // 移除特殊字符
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-]/g, '');
 
         const fileName = `${baseName}.${fileExt}`;
         const filePath = `anonymous/style-templates/${fileName}`;
 
-        // 上传到 Supabase
         const { data, error } = await supabase.storage
           .from('identity-photos')
           .upload(filePath, file, {
             cacheControl: '3600',
-            upsert: true // 允许覆盖同名文件
+            upsert: true
           });
 
         if (error) throw error;
 
-        // 更新表单 - 存储相对路径
-        setFormData({ ...formData, image: filePath });
+        setFormData({ ...formData, image_path: filePath });
 
-        // 生成预览
         const reader = new FileReader();
         reader.onload = (e) => setUploadedImagePreview(e.target.result);
         reader.readAsDataURL(file);
@@ -921,7 +873,7 @@ function ConfigAdmin() {
 
         <View style={styles.editLookOptionsContainer}>
           {lookingItems
-            .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0))
+            .sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0))
             .map(([key, item]) => {
               const cachedResult = cachedLooking[key];
               const isSelected = selectedEditLookId === key;
@@ -965,7 +917,7 @@ function ConfigAdmin() {
   const renderSection = (type, title) => {
     const items = config[type] || {};
     const itemsArray = Object.entries(items);
-    const sortedItems = itemsArray.sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
+    const sortedItems = itemsArray.sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0));
     const itemIds = sortedItems.map(([key]) => key);
 
     return (
@@ -1006,14 +958,58 @@ function ConfigAdmin() {
                     onEdit={openModal}
                     onToggle={toggleEnabled}
                     onRegenerate={handleRegeneratePrompt}
+                    onRestore={restoreItem}
                     isLoading={isLoading || !testImages.length}
                     cachedResult={cachedResult}
+                    isDeleted={false}
                   />
                 );
               })}
             </View>
           </SortableContext>
         </DndContext>
+      </View>
+    );
+  };
+
+  const renderDeletedSection = () => {
+    const allDeletedItems = [
+      ...Object.entries(deletedItems.looking || {}).map(([key, item]) => ({ key, item, type: 'looking' })),
+      ...Object.entries(deletedItems.templates || {}).map(([key, item]) => ({ key, item, type: 'templates' }))
+    ];
+
+    if (allDeletedItems.length === 0) {
+      return (
+        <View style={styles.section}>
+          <Text style={styles.emptyText}>No deleted items</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Deleted Items</Text>
+        </View>
+
+        <View style={styles.itemsGrid}>
+          {allDeletedItems.map(({ key, item, type }) => (
+            <SortableItemCard
+              key={key}
+              id={key}
+              item={item}
+              type={type}
+              onDelete={() => {}}
+              onEdit={() => {}}
+              onToggle={() => {}}
+              onRegenerate={() => {}}
+              onRestore={restoreItem}
+              isLoading={false}
+              cachedResult={null}
+              isDeleted={true}
+            />
+          ))}
+        </View>
       </View>
     );
   };
@@ -1141,19 +1137,45 @@ function ConfigAdmin() {
           )}
         </View>
 
-        {renderSection('looking', 'Edit Look')}
-        {renderEditLookSelector()}
-        {renderSection('templates', 'Aesthetic Templates')}
-
-        <View style={styles.exportSection}>
+        {/* Tab Navigation */}
+        <View style={styles.tabNavigation}>
           <TouchableOpacity
-            style={styles.exportButton}
-            onPress={exportConfig}
+            style={[styles.tabButton, activeTab === 'looking' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('looking')}
             activeOpacity={0.7}
           >
-            <Text style={styles.exportButtonText}>Export Configuration</Text>
+            <Text style={[styles.tabButtonText, activeTab === 'looking' && styles.tabButtonTextActive]}>
+              Edit Look
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'templates' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('templates')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'templates' && styles.tabButtonTextActive]}>
+              Templates
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'deleted' && styles.tabButtonActive]}
+            onPress={() => {
+              setActiveTab('deleted');
+              loadDeletedItems();
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'deleted' && styles.tabButtonTextActive]}>
+              Deleted
+            </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Render content based on active tab */}
+        {activeTab === 'looking' && renderSection('looking', 'Edit Look')}
+        {activeTab === 'looking' && renderEditLookSelector()}
+        {activeTab === 'templates' && renderSection('templates', 'Aesthetic Templates')}
+        {activeTab === 'deleted' && renderDeletedSection()}
       </View>
 
       {/* Edit/Add Modal */}
@@ -1192,17 +1214,74 @@ function ConfigAdmin() {
               />
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Prompt</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={formData.prompt}
-                onChangeText={(text) => setFormData({ ...formData, prompt: text })}
-                placeholder="e.g., better-looking, enhanced features, more attractive, photorealistic, realistic lighting, high detail, lifelike"
-                multiline
-                numberOfLines={4}
-              />
-            </View>
+            {/* Prompt inputs - 1 for Edit Look, 3 for Templates */}
+            {currentType === 'templates' ? (
+              <>
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Prompt 1 (Required)</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={formData.prompts[0]}
+                    onChangeText={(text) => {
+                      const newPrompts = [...formData.prompts];
+                      newPrompts[0] = text;
+                      setFormData({ ...formData, prompts: newPrompts });
+                    }}
+                    placeholder="First prompt..."
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Prompt 2 (Optional)</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={formData.prompts[1]}
+                    onChangeText={(text) => {
+                      const newPrompts = [...formData.prompts];
+                      newPrompts[1] = text;
+                      setFormData({ ...formData, prompts: newPrompts });
+                    }}
+                    placeholder="Second prompt..."
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Prompt 3 (Optional)</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={formData.prompts[2]}
+                    onChangeText={(text) => {
+                      const newPrompts = [...formData.prompts];
+                      newPrompts[2] = text;
+                      setFormData({ ...formData, prompts: newPrompts });
+                    }}
+                    placeholder="Third prompt..."
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+              </>
+            ) : (
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Prompt</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={formData.prompts[0]}
+                  onChangeText={(text) => {
+                    const newPrompts = [...formData.prompts];
+                    newPrompts[0] = text;
+                    setFormData({ ...formData, prompts: newPrompts });
+                  }}
+                  placeholder="e.g., better-looking, enhanced features, more attractive, photorealistic, realistic lighting, high detail, lifelike"
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+            )}
 
             {currentType === 'templates' && (
               <View style={styles.formGroup}>
@@ -1210,7 +1289,7 @@ function ConfigAdmin() {
                 <View style={styles.imageUploadContainer}>
                   <TextInput
                     style={[styles.input, styles.inputDisabled]}
-                    value={formData.image}
+                    value={formData.image_path}
                     placeholder="Upload an image..."
                     editable={false}
                   />
@@ -1228,12 +1307,11 @@ function ConfigAdmin() {
                   </TouchableOpacity>
                 </View>
 
-                {/* 图片预览 */}
-                {(formData.image || uploadedImagePreview) && (
+                {(formData.image_path || uploadedImagePreview) && (
                   <View style={styles.imagePreviewContainer}>
                     <Image
                       source={{
-                        uri: uploadedImagePreview || getTemplateImageUrl(formData.image)
+                        uri: uploadedImagePreview || getTemplateImageUrl(formData.image_path)
                       }}
                       style={styles.imagePreview}
                       resizeMode="cover"
@@ -1457,6 +1535,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  tabNavigation: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 24,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  tabButtonActive: {
+    backgroundColor: '#0071e3',
+  },
+  tabButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#6e6e73',
+  },
+  tabButtonTextActive: {
+    color: 'white',
+  },
   editLookSelectorSection: {
     backgroundColor: 'white',
     borderRadius: 18,
@@ -1565,6 +1668,10 @@ const styles = StyleSheet.create({
     flexBasis: '48%',
     minWidth: 280,
   },
+  itemCardDeleted: {
+    opacity: 0.6,
+    backgroundColor: '#ffe5e5',
+  },
   dragHandle: {
     position: 'absolute',
     top: 8,
@@ -1609,15 +1716,6 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
-  iconButton: {
-    padding: 4,
-    minWidth: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconText: {
-    fontSize: 16,
-  },
   textButton: {
     backgroundColor: '#0071e3',
     paddingHorizontal: 12,
@@ -1631,6 +1729,9 @@ const styles = StyleSheet.create({
   deleteButton: {
     backgroundColor: '#ff3b30',
   },
+  restoreButton: {
+    backgroundColor: '#34c759',
+  },
   textButtonText: {
     color: '#ffffff',
     fontSize: 12,
@@ -1638,11 +1739,6 @@ const styles = StyleSheet.create({
   },
   switch: {
     transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
-  },
-  itemId: {
-    fontSize: 13,
-    color: '#6e6e73',
-    marginBottom: 8,
   },
   itemPrompt: {
     fontSize: 14,
@@ -1659,6 +1755,12 @@ const styles = StyleSheet.create({
   },
   disabled: {
     color: '#8e8e93',
+  },
+  deletedBadge: {
+    fontSize: 12,
+    marginTop: 8,
+    fontWeight: '500',
+    color: '#ff3b30',
   },
   testResultInline: {
     marginTop: 16,
@@ -1690,20 +1792,11 @@ const styles = StyleSheet.create({
     color: '#8e8e93',
     fontStyle: 'italic',
   },
-  exportSection: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  exportButton: {
-    backgroundColor: '#1d1d1f',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 980,
-  },
-  exportButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '500',
+  emptyText: {
+    fontSize: 16,
+    color: '#6e6e73',
+    textAlign: 'center',
+    paddingVertical: 40,
   },
   modalOverlay: {
     flex: 1,
@@ -1717,6 +1810,7 @@ const styles = StyleSheet.create({
     padding: 32,
     width: '90%',
     maxWidth: 500,
+    maxHeight: '90%',
   },
   modalTitle: {
     fontSize: 24,
@@ -1746,7 +1840,7 @@ const styles = StyleSheet.create({
     color: '#8e8e93',
   },
   textArea: {
-    minHeight: 100,
+    minHeight: 80,
     textAlignVertical: 'top',
   },
   switchRow: {

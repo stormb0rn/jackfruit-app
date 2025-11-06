@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Platform } from 'react-native';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '../stores/appStore';
 import supabaseApi from '../services/supabaseApi';
@@ -17,8 +17,28 @@ function IdentityUpload() {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const { setIdentityPhoto, identityPhoto } = useAppStore();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  // Calculate responsive styles based on screen size
+  const responsiveStyles = useMemo(() => {
+    const isMobileWidth = screenWidth < 500;
+    const containerWidth = isMobileWidth ? Math.min(screenWidth * 0.9, 353) : 353;
+    const bottomPadding = isMobileWidth ? 15 : 35;
+    const containerTop = isMobileWidth ? 80 : 222;
+
+    return {
+      cameraContainer: {
+        width: containerWidth,
+        top: containerTop,
+      },
+      bottomControls: {
+        paddingHorizontal: bottomPadding,
+      },
+    };
+  }, [screenWidth, screenHeight]);
 
   // Initialize camera on component mount
   useEffect(() => {
@@ -67,9 +87,13 @@ function IdentityUpload() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    // Draw current video frame to canvas
+    // Draw current video frame to canvas with horizontal flip (mirror)
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.save();
+    // Mirror the image horizontally to match the preview
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
 
     // Convert canvas to blob
     canvas.toBlob((blob) => {
@@ -113,6 +137,29 @@ function IdentityUpload() {
     }
   };
 
+  const handleSelectFromAlbum = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Read file and set as captured image
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageUrl = e.target?.result;
+      if (typeof imageUrl === 'string') {
+        setCapturedImage({
+          blob: file,
+          url: imageUrl,
+          fromAlbum: true
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Overlay */}
@@ -121,7 +168,7 @@ function IdentityUpload() {
           top: 0,
           left: 0,
           right: 0,
-          height: Platform.OS === 'web' ? 120 : 80,
+          height: screenWidth < 500 ? 60 : 120,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -133,7 +180,7 @@ function IdentityUpload() {
             alt=""
             style={{
               width: '100%',
-              height: Platform.OS === 'web' ? 120 : 80,
+              height: screenWidth < 500 ? 60 : 120,
               maxWidth: 'none',
               transform: 'scaleY(-1)',
             }}
@@ -143,6 +190,15 @@ function IdentityUpload() {
       {/* Hidden canvas for capturing photos */}
       <canvas
         ref={canvasRef}
+        style={{ display: 'none' }}
+      />
+
+      {/* Hidden file input for album selection */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
         style={{ display: 'none' }}
       />
 
@@ -159,7 +215,7 @@ function IdentityUpload() {
       <Text style={styles.title}>TAKE A SELFIE</Text>
 
       {/* Camera Preview / Captured Image Container */}
-      <View style={styles.cameraContainer}>
+      <View style={[styles.cameraContainer, responsiveStyles.cameraContainer]}>
         {capturedImage ? (
           // Show captured image
           <Image
@@ -192,7 +248,7 @@ function IdentityUpload() {
       </View>
 
       {/* Bottom Controls */}
-      <View style={styles.bottomControls}>
+      <View style={[styles.bottomControls, responsiveStyles.bottomControls]}>
         {/* Retake Button (shown when image is captured) - Liquid Glass Style */}
         {capturedImage && (
           <LiquidGlassTextButton
@@ -203,19 +259,23 @@ function IdentityUpload() {
           </LiquidGlassTextButton>
         )}
 
-        {/* Thumbnail - Previous Photo */}
+        {/* Album Button - Select from gallery */}
         {!capturedImage && (
-          <View style={styles.thumbnail}>
+          <TouchableOpacity
+            style={styles.albumButton}
+            onPress={handleSelectFromAlbum}
+            activeOpacity={0.7}
+          >
             {identityPhoto?.url ? (
               <Image
                 source={{ uri: identityPhoto.url }}
-                style={styles.thumbnailImage}
+                style={styles.albumButtonImage}
                 resizeMode="cover"
               />
             ) : (
-              <View style={styles.thumbnailEmpty} />
+              <Text style={styles.albumButtonText}>📷</Text>
             )}
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* Camera Button (Take Photo) */}
@@ -256,6 +316,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     height: '100%',
+    minHeight: '100vh',
   },
   backButton: {
     position: 'absolute',
@@ -291,22 +352,17 @@ const styles = StyleSheet.create({
   },
   cameraContainer: {
     position: 'absolute',
-    top: 122 + 100,
-    left: '50%',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     width: 353,
     height: 560,
+    margin: 'auto',
     borderRadius: 16,
     backgroundColor: '#1a1a1a',
     overflow: 'hidden',
     zIndex: 1,
-    ...Platform.select({
-      web: {
-        transform: 'translateX(-50%)',
-      },
-      default: {
-        marginLeft: -353 / 2, // React Native centering
-      },
-    }),
   },
   capturedImage: {
     width: '100%',
@@ -338,16 +394,17 @@ const styles = StyleSheet.create({
   },
   bottomControls: {
     position: 'absolute',
-    bottom: 50,
+    bottom: Platform.OS === 'web' ? 50 : 80,
     left: 0,
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 35,
+    paddingBottom: Platform.OS === 'web' ? 0 : 20,
     zIndex: 10,
   },
-  thumbnail: {
+  albumButton: {
     width: 73,
     height: 71,
     borderRadius: 19,
@@ -355,15 +412,15 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
     overflow: 'hidden',
     backgroundColor: '#666',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  thumbnailImage: {
+  albumButtonImage: {
     width: '100%',
     height: '100%',
   },
-  thumbnailEmpty: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  albumButtonText: {
+    fontSize: 32,
   },
   retakeButton: {
     paddingVertical: 12,

@@ -91,6 +91,11 @@ body {
   overflow: hidden;
 }
 
+#root {
+  width: 100%;
+  height: 100%;
+}
+
 .app {
   width: 100%;
   height: 100vh;
@@ -168,7 +173,7 @@ html {
 /* Mobile - Full width */
 @media (max-width: 768px) {
   body {
-    background-color: #000;
+    background-color: transparent;
   }
 
   /* Prevent text size adjustment on orientation change */

@@ -77,7 +77,7 @@ function Landing() {
               objectFit: 'cover',
             }}
           >
-            <source src="https://fwytawawmtenhbnwhunc.supabase.co/storage/v1/object/public/videos/landing-background.mp4" type="video/mp4" />
+            <source src="/videos/landing-background.mp4" type="video/mp4" />
             Your browser does not support the video tag.
           </video>
           {/* Base purple tint overlay */}

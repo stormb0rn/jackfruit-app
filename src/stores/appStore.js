@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabaseApi } from '../services/supabaseApi';
+import configService from '../services/configService';
 import transformationPromptsJson from '../config/transformation_prompts.json';
 import styleTemplatesJson from '../config/style_templates.json';
 
@@ -77,8 +77,7 @@ const useAppStore = create((set) => ({
       // Load transformation prompts (looking config)
       let transformationPrompts = null;
       try {
-        const lookingConfig = await supabaseApi.getPromptConfig('looking');
-        transformationPrompts = lookingConfig.edit_options;
+        transformationPrompts = await configService.loadItems('looking');
         console.log('[appStore] Loaded transformation prompts from Supabase');
       } catch (error) {
         console.warn('[appStore] Failed to load transformation prompts from Supabase, using JSON fallback:', error);
@@ -88,8 +87,7 @@ const useAppStore = create((set) => ({
       // Load style templates (templates config)
       let styleTemplates = null;
       try {
-        const templatesConfig = await supabaseApi.getPromptConfig('templates');
-        styleTemplates = templatesConfig.templates;
+        styleTemplates = await configService.loadItems('templates');
         console.log('[appStore] Loaded style templates from Supabase');
       } catch (error) {
         console.warn('[appStore] Failed to load style templates from Supabase, using JSON fallback:', error);

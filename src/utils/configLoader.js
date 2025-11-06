@@ -85,7 +85,7 @@ export const configLoader = {
    * Build a complete prompt with edit style and style template
    * @param {string} editStyleId - The edit style ID
    * @param {string} styleTemplateId - The style template ID (optional)
-   * @returns {string} Complete combined prompt string
+   * @returns {string|Array} For templates: array of 3 prompts; For edit look: single prompt
    */
   buildCompletePrompt: (editStyleId, styleTemplateId = null) => {
     const editOption = configLoader.getEditOptionById(editStyleId);
@@ -94,16 +94,34 @@ export const configLoader = {
       throw new Error('Invalid edit style ID');
     }
 
-    let prompt = editOption.prompt;
+    // Get the prompt(s) from edit option (either array or string)
+    const editPrompts = Array.isArray(editOption.prompts)
+      ? editOption.prompts
+      : editOption.prompt
+      ? [editOption.prompt]
+      : [];
 
     if (styleTemplateId) {
       const styleTemplate = configLoader.getStyleTemplateById(styleTemplateId);
       if (styleTemplate) {
-        prompt += `, ${styleTemplate.prompt}`;
+        // Style template returns array of 3 prompts
+        // Combine with edit option prompt
+        const templatePrompts = Array.isArray(styleTemplate.prompts)
+          ? styleTemplate.prompts
+          : styleTemplate.prompt
+          ? [styleTemplate.prompt, styleTemplate.prompt, styleTemplate.prompt]
+          : [];
+
+        // Return array of combined prompts for template (3 variations)
+        return templatePrompts.map((templatePrompt, index) => {
+          const editPrompt = editPrompts[0] || editPrompts;
+          return `${editPrompt}, ${templatePrompt}`;
+        });
       }
     }
 
-    return prompt;
+    // For edit look only, return single prompt string
+    return editPrompts[0] || editPrompts;
   }
 };
 
