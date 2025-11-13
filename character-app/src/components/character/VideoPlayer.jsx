@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export const VideoPlayer = ({ videosPlaylist = [] }) => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const videoRef = useRef(null)
 
   useEffect(() => {
@@ -16,8 +17,16 @@ export const VideoPlayer = ({ videosPlaylist = [] }) => {
 
   const handleVideoEnd = () => {
     if (videosPlaylist.length === 0) return
-    const nextIndex = (currentVideoIndex + 1) % videosPlaylist.length
-    setCurrentVideoIndex(nextIndex)
+
+    // Start fade out transition
+    setIsTransitioning(true)
+
+    // Wait for fade out, then switch video
+    setTimeout(() => {
+      const nextIndex = (currentVideoIndex + 1) % videosPlaylist.length
+      setCurrentVideoIndex(nextIndex)
+      setIsTransitioning(false)
+    }, 300) // 300ms fade out duration
   }
 
   if (!videosPlaylist || videosPlaylist.length === 0) {
@@ -48,37 +57,52 @@ export const VideoPlayer = ({ videosPlaylist = [] }) => {
   const currentVideo = videosPlaylist[currentVideoIndex]
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
+    <div
       style={{
         position: 'absolute',
         top: 0,
         left: 0,
         width: '100%',
         height: '100%',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        backgroundColor: '#000'
       }}
     >
-      <video
-        ref={videoRef}
-        onEnded={handleVideoEnd}
-        autoPlay
-        muted
-        playsInline
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          backgroundColor: '#000'
-        }}
-      >
-        <source src={currentVideo.video_url} type="video/mp4" />
-      </video>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentVideoIndex}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isTransitioning ? 0 : 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: 'easeInOut' }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%'
+          }}
+        >
+          <video
+            ref={videoRef}
+            onEnded={handleVideoEnd}
+            autoPlay
+            muted
+            playsInline
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              backgroundColor: '#000'
+            }}
+          >
+            <source src={currentVideo.video_url} type="video/mp4" />
+          </video>
+        </motion.div>
+      </AnimatePresence>
 
       {videosPlaylist.length > 1 && (
         <div style={{
@@ -104,6 +128,6 @@ export const VideoPlayer = ({ videosPlaylist = [] }) => {
           ))}
         </div>
       )}
-    </motion.div>
+    </div>
   )
 }
