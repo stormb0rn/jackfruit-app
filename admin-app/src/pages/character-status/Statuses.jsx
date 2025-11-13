@@ -13,10 +13,10 @@ const GENERATION_STATUS_COLORS = {
 }
 
 const GENERATION_STATUS_LABELS = {
-  draft: '草稿',
-  generating: '生成中',
-  completed: '已完成',
-  failed: '失败'
+  draft: 'Draft',
+  generating: 'Generating',
+  completed: 'Completed',
+  failed: 'Failed'
 }
 
 const MOOD_COLORS = {
@@ -46,7 +46,7 @@ export const Statuses = () => {
       const data = await characterService.getAll()
       setCharacters(data)
     } catch (error) {
-      message.error(`加载角色列表失败: ${error.message}`)
+      message.error(`Failed to load character list: ${error.message}`)
     }
   }
 
@@ -58,7 +58,7 @@ export const Statuses = () => {
         : await statusService.getAll()
       setStatuses(data)
     } catch (error) {
-      message.error(`加载失败: ${error.message}`)
+      message.error(`Failed to load: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -75,20 +75,20 @@ export const Statuses = () => {
   const handleDelete = async (statusId) => {
     try {
       await statusService.delete(statusId)
-      message.success('删除成功')
+      message.success('Deleted successfully')
       loadStatuses()
     } catch (error) {
-      message.error(`删除失败: ${error.message}`)
+      message.error(`Failed to delete: ${error.message}`)
     }
   }
 
   const handleSetDefault = async (characterId, statusId) => {
     try {
       await statusService.setDefault(characterId, statusId)
-      message.success('已设为默认状态')
+      message.success('Set as default status')
       loadStatuses()
     } catch (error) {
-      message.error(`设置失败: ${error.message}`)
+      message.error(`Failed to set: ${error.message}`)
     }
   }
 
@@ -100,7 +100,7 @@ export const Statuses = () => {
 
   const columns = [
     {
-      title: '角色',
+      title: 'Character',
       dataIndex: 'character',
       key: 'character',
       width: 200,
@@ -112,7 +112,7 @@ export const Statuses = () => {
       ) : '-'
     },
     {
-      title: '标题',
+      title: 'Title',
       dataIndex: 'title',
       key: 'title',
       width: 180
@@ -125,7 +125,7 @@ export const Statuses = () => {
       render: (mood) => <Tag color={MOOD_COLORS[mood] || 'default'}>{mood}</Tag>
     },
     {
-      title: '生成进度',
+      title: 'Generation Progress',
       dataIndex: 'generation_step',
       key: 'generation_step',
       width: 180,
@@ -143,7 +143,7 @@ export const Statuses = () => {
       )
     },
     {
-      title: '状态',
+      title: 'Status',
       dataIndex: 'generation_status',
       key: 'generation_status',
       width: 120,
@@ -154,14 +154,14 @@ export const Statuses = () => {
       )
     },
     {
-      title: '视频数量',
+      title: 'Video Count',
       dataIndex: 'videos_playlist',
       key: 'videos_count',
       width: 100,
       render: (videos) => videos?.length || 0
     },
     {
-      title: '默认',
+      title: 'Default',
       dataIndex: 'is_default',
       key: 'is_default',
       width: 80,
@@ -177,14 +177,14 @@ export const Statuses = () => {
       )
     },
     {
-      title: '创建时间',
+      title: 'Created At',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 180,
-      render: (date) => new Date(date).toLocaleString('zh-CN')
+      render: (date) => new Date(date).toLocaleString('en-US')
     },
     {
-      title: '操作',
+      title: 'Actions',
       key: 'actions',
       width: 150,
       fixed: 'right',
@@ -195,16 +195,16 @@ export const Statuses = () => {
             icon={<EditOutlined />}
             onClick={() => handleEdit(record.status_id)}
           >
-            编辑
+            Edit
           </Button>
           <Popconfirm
-            title="确定删除这个状态吗？"
+            title="Are you sure you want to delete this status?"
             onConfirm={() => handleDelete(record.status_id)}
-            okText="确定"
-            cancelText="取消"
+            okText="Yes"
+            cancelText="No"
           >
             <Button type="link" danger icon={<DeleteOutlined />}>
-              删除
+              Delete
             </Button>
           </Popconfirm>
         </Space>
@@ -218,10 +218,10 @@ export const Statuses = () => {
         <div>
           <h2 style={{ marginBottom: 8 }}>Character Statuses</h2>
           <Space>
-            <span>筛选角色：</span>
+            <span>Filter by Character:</span>
             <Select
               style={{ width: 200 }}
-              placeholder="全部角色"
+              placeholder="All Characters"
               allowClear
               value={filterCharacterId}
               onChange={setFilterCharacterId}
@@ -238,7 +238,7 @@ export const Statuses = () => {
           </Space>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          创建新 Status
+          Create New Status
         </Button>
       </div>
 

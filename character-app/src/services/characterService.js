@@ -1,6 +1,17 @@
 import { supabase } from './supabaseClient'
 
 export const characterService = {
+  // Get all characters
+  async getAllCharacters() {
+    const { data, error } = await supabase
+      .from('ai_characters')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
   // Get character by ID with all statuses
   async getCharacterWithStatuses(characterId) {
     const { data, error } = await supabase

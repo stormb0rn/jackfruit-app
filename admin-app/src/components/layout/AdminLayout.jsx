@@ -28,7 +28,7 @@ export const AdminLayout = () => {
     {
       key: 'lookgen',
       icon: <PictureOutlined />,
-      label: 'LookGen 管理',
+      label: 'LookGen Management',
       children: [
         {
           key: '/admin/lookgen/transformations',
@@ -53,9 +53,9 @@ export const AdminLayout = () => {
           label: 'AI Characters'
         },
         {
-          key: '/admin/character-status/assets',
-          icon: <AppstoreOutlined />,
-          label: 'Assets Library'
+          key: '/admin/character-status/statuses',
+          icon: <ThunderboltOutlined />,
+          label: 'Character Statuses'
         },
         {
           key: '/admin/character-status/prompts',
@@ -63,9 +63,9 @@ export const AdminLayout = () => {
           label: 'System Prompts'
         },
         {
-          key: '/admin/character-status/statuses',
-          icon: <ThunderboltOutlined />,
-          label: 'Character Statuses'
+          key: '/admin/character-status/assets',
+          icon: <AppstoreOutlined />,
+          label: 'Assets Library'
         }
       ]
     }
@@ -115,7 +115,7 @@ export const AdminLayout = () => {
           justifyContent: 'space-between'
         }}>
           <div style={{ fontSize: 18, fontWeight: 500 }}>
-            统一管理后台
+            Admin Dashboard
           </div>
           <div style={{ color: '#666' }}>
             Social Look App

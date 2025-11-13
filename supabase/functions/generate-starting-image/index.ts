@@ -27,7 +27,13 @@ serve(async (req) => {
     console.log(`Scene: ${scene_prompt}`)
     console.log(`Mood: ${mood}`)
 
+    // 构建完整的 prompt
+    const fullPrompt = `${scene_prompt}. Mood: ${mood}. Cinematic, high quality, portrait composition.`
+
+    console.log('Full prompt:', fullPrompt)
+
     // 调用 FAL SeeDrawm v4 Edit API
+    // 使用 576x1024 (9:16 比例，低分辨率，更快)
     const falResponse = await fetch('https://fal.run/fal-ai/bytedance/seedream/v4/edit', {
       method: 'POST',
       headers: {
@@ -35,11 +41,14 @@ serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        image_url: character_avatar_url,
-        prompt: `${scene_prompt}. Mood: ${mood}. Cinematic, high quality, portrait composition, 9:16 aspect ratio.`,
-        image_size: 'portrait_9_16',
-        num_inference_steps: 28,
-        guidance_scale: 7.5
+        image_urls: [character_avatar_url],  // 必须是数组格式
+        prompt: fullPrompt,
+        image_size: {
+          width: 576,    // 9:16 比例，低分辨率
+          height: 1024
+        },
+        num_images: 1,
+        enable_safety_checker: true
       })
     })
 
@@ -88,7 +97,8 @@ serve(async (req) => {
         success: true,
         data: {
           image_url: publicUrl,
-          original_fal_url: falImageUrl
+          original_fal_url: falImageUrl,
+          prompt_used: fullPrompt  // 返回使用的 prompt
         }
       }),
       {

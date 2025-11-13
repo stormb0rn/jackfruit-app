@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { characterService } from '../services/characterService'
+import { MobileFrame } from '../components/layout/MobileFrame'
 import { VideoPlayer } from '../components/character/VideoPlayer'
-import { MoodSelector } from '../components/character/MoodSelector'
-import { OverlayPanel } from '../components/character/OverlayPanel'
-import { ActionSuggestions } from '../components/character/ActionSuggestions'
+import { StatusIndicators } from '../components/character/StatusIndicators'
+import { StatusOverlays } from '../components/character/StatusOverlays'
+import { TopBar } from '../components/character/TopBar'
+import { BottomSection } from '../components/character/BottomSection'
 
 export const CharacterView = () => {
   const { characterId } = useParams()
   const [character, setCharacter] = useState(null)
   const [statuses, setStatuses] = useState([])
   const [currentStatus, setCurrentStatus] = useState(null)
+  const [activeOverlay, setActiveOverlay] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -23,18 +26,28 @@ export const CharacterView = () => {
       setLoading(true)
       setError(null)
 
+      // If no characterId provided, get the first available character
+      let targetCharacterId = characterId
+      if (!targetCharacterId) {
+        const allCharacters = await characterService.getAllCharacters()
+        if (allCharacters.length === 0) {
+          throw new Error('No characters found in database')
+        }
+        targetCharacterId = allCharacters[0].character_id
+      }
+
       // Load character with all statuses
-      const characterData = await characterService.getCharacterWithStatuses(characterId)
+      const characterData = await characterService.getCharacterWithStatuses(targetCharacterId)
       setCharacter(characterData)
 
       // Get completed statuses
-      const completedStatuses = await characterService.getCompletedStatuses(characterId)
+      const completedStatuses = await characterService.getCompletedStatuses(targetCharacterId)
       setStatuses(completedStatuses)
 
       // Get default or first completed status
       if (completedStatuses.length > 0) {
         try {
-          const defaultStatus = await characterService.getDefaultStatus(characterId)
+          const defaultStatus = await characterService.getDefaultStatus(targetCharacterId)
           setCurrentStatus(defaultStatus)
         } catch (err) {
           // If no default, use first completed status
@@ -49,109 +62,126 @@ export const CharacterView = () => {
     }
   }
 
+  const handleToggleOverlay = (overlayType) => {
+    // Toggle: if clicking the same overlay, close it; otherwise switch to new one
+    setActiveOverlay(activeOverlay === overlayType ? null : overlayType)
+  }
+
   const handleSelectStatus = (status) => {
     setCurrentStatus(status)
+    // Close overlay after selecting mood
+    setActiveOverlay(null)
   }
 
   if (loading) {
     return (
-      <div style={{
-        width: '100%',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
-        fontSize: 24
-      }}>
-        <div>
-          <div style={{ marginBottom: 16, fontSize: 48 }}>⏳</div>
-          <div>Loading...</div>
+      <MobileFrame>
+        <div style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          fontSize: 24
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ marginBottom: 16, fontSize: 48 }}>⏳</div>
+            <div>Loading...</div>
+          </div>
         </div>
-      </div>
+      </MobileFrame>
     )
   }
 
   if (error) {
     return (
-      <div style={{
-        width: '100%',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        color: 'white',
-        fontSize: 24,
-        textAlign: 'center',
-        padding: 40
-      }}>
-        <div>
-          <div style={{ marginBottom: 16, fontSize: 48 }}>❌</div>
-          <div>Error loading character</div>
-          <div style={{ fontSize: 14, marginTop: 8, opacity: 0.8 }}>
-            {error}
+      <MobileFrame>
+        <div style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+          color: 'white',
+          fontSize: 24,
+          textAlign: 'center',
+          padding: 40
+        }}>
+          <div>
+            <div style={{ marginBottom: 16, fontSize: 48 }}>❌</div>
+            <div>Error loading character</div>
+            <div style={{ fontSize: 14, marginTop: 8, opacity: 0.8 }}>
+              {error}
+            </div>
           </div>
         </div>
-      </div>
+      </MobileFrame>
     )
   }
 
   if (!character || !currentStatus) {
     return (
-      <div style={{
-        width: '100%',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-        color: '#333',
-        fontSize: 24,
-        textAlign: 'center',
-        padding: 40
-      }}>
-        <div>
-          <div style={{ marginBottom: 16, fontSize: 48 }}>🤖</div>
-          <div>Character not found or no statuses available</div>
-          <div style={{ fontSize: 14, marginTop: 8, opacity: 0.7 }}>
-            Please create statuses in the admin panel
+      <MobileFrame>
+        <div style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+          color: '#333',
+          fontSize: 24,
+          textAlign: 'center',
+          padding: 40
+        }}>
+          <div>
+            <div style={{ marginBottom: 16, fontSize: 48 }}>🤖</div>
+            <div>Character not found or no statuses available</div>
+            <div style={{ fontSize: 14, marginTop: 8, opacity: 0.7 }}>
+              Please create statuses in the admin panel
+            </div>
           </div>
         </div>
-      </div>
+      </MobileFrame>
     )
   }
 
   return (
-    <div style={{
-      width: '100%',
-      height: '100vh',
-      position: 'relative',
-      overflow: 'hidden',
-      backgroundColor: '#000'
-    }}>
-      {/* Video Background */}
-      <VideoPlayer videosPlaylist={currentStatus.videos_playlist || []} />
+    <MobileFrame>
+      <div style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+        backgroundColor: '#000'
+      }}>
+        {/* Video Background */}
+        <VideoPlayer videosPlaylist={currentStatus.videos_playlist || []} />
 
-      {/* Action Suggestions */}
-      <ActionSuggestions suggestions={currentStatus.suggestions_list || []} />
+        {/* Top Bar with Post button */}
+        <TopBar />
 
-      {/* Overlay Panels */}
-      {currentStatus.overlays_content?.now && (
-        <OverlayPanel type="now" content={currentStatus.overlays_content.now} />
-      )}
+        {/* Left Side Status Indicators */}
+        <StatusIndicators
+          activeOverlay={activeOverlay}
+          onToggleOverlay={handleToggleOverlay}
+        />
 
-      {currentStatus.overlays_content?.health && (
-        <OverlayPanel type="health" content={currentStatus.overlays_content.health} />
-      )}
+        {/* Status Overlays (NOW/HEALTH/MOOD) */}
+        <StatusOverlays
+          activeOverlay={activeOverlay}
+          currentStatus={currentStatus}
+          allStatuses={statuses}
+          onSelectStatus={handleSelectStatus}
+          onClose={() => setActiveOverlay(null)}
+        />
 
-      {/* Mood Selector */}
-      <MoodSelector
-        statuses={statuses}
-        currentStatus={currentStatus}
-        onSelectStatus={handleSelectStatus}
-      />
-    </div>
+        {/* Bottom Section with Suggestions and Navigation */}
+        <BottomSection suggestions={currentStatus.suggestions_list || []} />
+      </div>
+    </MobileFrame>
   )
 }

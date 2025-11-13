@@ -4,9 +4,9 @@ import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import { promptService } from '../../services/promptService'
 
 const PROMPT_TYPES = [
-  { value: 'video_generation', label: '视频生成', color: 'blue' },
-  { value: 'image_generation', label: '图片生成', color: 'green' },
-  { value: 'text_generation', label: '文本生成', color: 'orange' }
+  { value: 'video_generation', label: 'Video Generation', color: 'blue' },
+  { value: 'image_generation', label: 'Image Generation', color: 'green' },
+  { value: 'text_generation', label: 'Text Generation', color: 'orange' }
 ]
 
 export const Prompts = () => {
@@ -29,7 +29,7 @@ export const Prompts = () => {
         : await promptService.getAll()
       setPrompts(data)
     } catch (error) {
-      message.error(`加载失败: ${error.message}`)
+      message.error(`Failed to load: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -54,10 +54,10 @@ export const Prompts = () => {
   const handleDelete = async (promptId) => {
     try {
       await promptService.delete(promptId)
-      message.success('删除成功')
+      message.success('Deleted successfully')
       loadPrompts()
     } catch (error) {
-      message.error(`删除失败: ${error.message}`)
+      message.error(`Failed to delete: ${error.message}`)
     }
   }
 
@@ -65,17 +65,17 @@ export const Prompts = () => {
     try {
       if (editingPrompt) {
         await promptService.update(editingPrompt.prompt_id, values)
-        message.success('更新成功')
+        message.success('Updated successfully')
       } else {
         await promptService.create(values)
-        message.success('创建成功')
+        message.success('Created successfully')
       }
 
       setModalVisible(false)
       form.resetFields()
       loadPrompts()
     } catch (error) {
-      message.error(`保存失败: ${error.message}`)
+      message.error(`Failed to save: ${error.message}`)
     }
   }
 
@@ -85,13 +85,13 @@ export const Prompts = () => {
 
   const columns = [
     {
-      title: '名称',
+      title: 'Name',
       dataIndex: 'prompt_name',
       key: 'name',
       width: 200
     },
     {
-      title: '类型',
+      title: 'Type',
       dataIndex: 'prompt_type',
       key: 'type',
       width: 150,
@@ -101,7 +101,7 @@ export const Prompts = () => {
       }
     },
     {
-      title: 'Prompt 内容',
+      title: 'Prompt Content',
       dataIndex: 'prompt_content',
       key: 'content',
       ellipsis: true,
@@ -112,14 +112,14 @@ export const Prompts = () => {
       )
     },
     {
-      title: '创建时间',
+      title: 'Created At',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 180,
-      render: (date) => new Date(date).toLocaleString('zh-CN')
+      render: (date) => new Date(date).toLocaleString('en-US')
     },
     {
-      title: '操作',
+      title: 'Actions',
       key: 'actions',
       width: 150,
       render: (_, record) => (
@@ -129,16 +129,16 @@ export const Prompts = () => {
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
-            编辑
+            Edit
           </Button>
           <Popconfirm
-            title="确定删除这个提示词吗？"
+            title="Are you sure you want to delete this prompt?"
             onConfirm={() => handleDelete(record.prompt_id)}
-            okText="确定"
-            cancelText="取消"
+            okText="Yes"
+            cancelText="No"
           >
             <Button type="link" danger icon={<DeleteOutlined />}>
-              删除
+              Delete
             </Button>
           </Popconfirm>
         </Space>
@@ -152,10 +152,10 @@ export const Prompts = () => {
         <div>
           <h2 style={{ marginBottom: 8 }}>System Prompts</h2>
           <Space>
-            <span>筛选类型：</span>
+            <span>Filter by Type:</span>
             <Select
               style={{ width: 150 }}
-              placeholder="全部类型"
+              placeholder="All Types"
               allowClear
               value={filterType}
               onChange={setFilterType}
@@ -167,7 +167,7 @@ export const Prompts = () => {
           </Space>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          创建新 Prompt
+          Create New Prompt
         </Button>
       </div>
 
@@ -180,7 +180,7 @@ export const Prompts = () => {
       />
 
       <Modal
-        title={editingPrompt ? '编辑 Prompt' : '创建新 Prompt'}
+        title={editingPrompt ? 'Edit Prompt' : 'Create New Prompt'}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         onOk={() => form.submit()}
@@ -189,18 +189,18 @@ export const Prompts = () => {
         <Form form={form} onFinish={handleSubmit} layout="vertical">
           <Form.Item
             name="prompt_name"
-            label="Prompt 名称"
-            rules={[{ required: true, message: '请输入 Prompt 名称' }]}
+            label="Prompt Name"
+            rules={[{ required: true, message: 'Please enter prompt name' }]}
           >
             <Input placeholder="e.g., IMAGE_GEN" />
           </Form.Item>
 
           <Form.Item
             name="prompt_type"
-            label="Prompt 类型"
-            rules={[{ required: true, message: '请选择 Prompt 类型' }]}
+            label="Prompt Type"
+            rules={[{ required: true, message: 'Please select prompt type' }]}
           >
-            <Select placeholder="选择类型">
+            <Select placeholder="Select Type">
               {PROMPT_TYPES.map(type => (
                 <Select.Option key={type.value} value={type.value}>{type.label}</Select.Option>
               ))}
@@ -209,12 +209,12 @@ export const Prompts = () => {
 
           <Form.Item
             name="prompt_content"
-            label="Prompt 内容"
-            rules={[{ required: true, message: '请输入 Prompt 内容' }]}
+            label="Prompt Content"
+            rules={[{ required: true, message: 'Please enter prompt content' }]}
           >
             <Input.TextArea
               rows={10}
-              placeholder="输入完整的 Prompt 模板..."
+              placeholder="Enter complete prompt template..."
             />
           </Form.Item>
         </Form>

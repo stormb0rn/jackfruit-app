@@ -129,7 +129,9 @@ export const statusService = {
     }
 
     const result = await response.json()
-    return result
+    // Edge Function 返回 { success: true, data: {...} }
+    // 我们需要返回 data 部分
+    return result.data || result
   },
 
   // Step 2: 生成首帧图（调用 FAL SeeDrawm）
@@ -154,7 +156,13 @@ export const statusService = {
     }
 
     const result = await response.json()
-    return result
+    // Edge Function 返回 { success: true, data: { image_url, original_fal_url } }
+    // 返回 data 并将 image_url 重命名为 starting_image_url
+    const data = result.data || result
+    return {
+      starting_image_url: data.image_url || data.starting_image_url,
+      original_fal_url: data.original_fal_url
+    }
   },
 
   // Step 3: 生成单个视频（调用 FAL SeeDance）

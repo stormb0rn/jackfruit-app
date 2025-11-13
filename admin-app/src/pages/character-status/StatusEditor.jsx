@@ -22,6 +22,7 @@ const MOOD_OPTIONS = [
 
 // Sortable Video Item Component
 const SortableVideoItem = ({ video, index, onDelete }) => {
+  const [showPlayer, setShowPlayer] = useState(false)
   const {
     attributes,
     listeners,
@@ -42,30 +43,56 @@ const SortableVideoItem = ({ video, index, onDelete }) => {
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <MenuOutlined style={{ color: '#999' }} />
-          <Tag color="green">Video {index + 1}</Tag>
-          <span>{video.scene_prompt}</span>
+    <div ref={setNodeRef} style={style}>
+      <div {...attributes} {...listeners}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <MenuOutlined style={{ color: '#999' }} />
+            <Tag color="green">Video {index + 1}</Tag>
+            <span>{video.scene_prompt}</span>
+          </div>
+          <Space>
+            <Button
+              type="link"
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowPlayer(!showPlayer)
+              }}
+            >
+              {showPlayer ? 'Hide Player' : 'Show Player'}
+            </Button>
+            <Button
+              danger
+              size="small"
+              icon={<DeleteOutlined />}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(index)
+              }}
+            >
+              Delete
+            </Button>
+          </Space>
         </div>
-        <Space>
-          <a href={video.video_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-            Preview
-          </a>
-          <Button
-            danger
-            size="small"
-            icon={<DeleteOutlined />}
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete(index)
+      </div>
+
+      {showPlayer && (
+        <div style={{ marginTop: 12, cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+          <video
+            src={video.video_url}
+            controls
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              borderRadius: 4,
+              border: '1px solid #d9d9d9'
             }}
           >
-            Delete
-          </Button>
-        </Space>
-      </div>
+            Your browser does not support video playback
+          </video>
+        </div>
+      )}
     </div>
   )
 }
@@ -91,6 +118,7 @@ export const StatusEditor = () => {
   // Step 2 state
   const [generatingImage, setGeneratingImage] = useState(false)
   const [startingImageUrl, setStartingImageUrl] = useState('')
+  const [startingImagePrompt, setStartingImagePrompt] = useState('')
   const [selectedSceneIndex, setSelectedSceneIndex] = useState(0)
   const [uploadingImage, setUploadingImage] = useState(false)
 
@@ -200,9 +228,10 @@ export const StatusEditor = () => {
         values.status_description
       )
 
-      setOverlaysContent(result.overlays)
-      setSuggestionsList(result.suggestions)
-      setVideoScenes(result.video_scenes)
+      // 确保数据格式正确
+      setOverlaysContent(result.overlays || { now: '', health: '' })
+      setSuggestionsList(result.suggestions || [])
+      setVideoScenes(result.video_scenes || [])
       setCurrentStep(1)
 
       message.success('Text content generated')
@@ -216,6 +245,11 @@ export const StatusEditor = () => {
 
   // Step 2: Generate starting image
   const handleGenerateImage = async () => {
+    console.log('🎬 handleGenerateImage called')
+    console.log('videoScenes:', videoScenes)
+    console.log('status:', status)
+    console.log('statusId:', statusId)
+
     if (!videoScenes || videoScenes.length === 0) {
       message.error('Please generate video scenes first')
       return
@@ -230,6 +264,13 @@ export const StatusEditor = () => {
       setGeneratingImage(true)
       const selectedScene = videoScenes[selectedSceneIndex] || videoScenes[0]
 
+      console.log('📸 Calling generateStartingImage with:', {
+        statusId,
+        avatar_url: status.character.avatar_url,
+        selectedScene,
+        mood: form.getFieldValue('mood')
+      })
+
       const result = await statusService.generateStartingImage(
         statusId,
         status.character.avatar_url,
@@ -237,12 +278,15 @@ export const StatusEditor = () => {
         form.getFieldValue('mood')
       )
 
+      console.log('✅ Generation result:', result)
       setStartingImageUrl(result.starting_image_url)
+      setStartingImagePrompt(result.prompt_used || selectedScene)
       setCurrentStep(2)
       message.success('Starting image generated')
 
       await handleSave(true)
     } catch (error) {
+      console.error('❌ Generation error:', error)
       message.error(`Generation failed: ${error.message}`)
     } finally {
       setGeneratingImage(false)
@@ -600,6 +644,14 @@ export const StatusEditor = () => {
           <div>
             <h4>Starting Image Preview:</h4>
             <Image src={startingImageUrl} width={300} />
+            {startingImagePrompt && (
+              <div style={{ marginTop: 12, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 12, color: '#666' }}>
+                  Generation Prompt:
+                </div>
+                <div style={{ fontSize: 13, color: '#333' }}>{startingImagePrompt}</div>
+              </div>
+            )}
           </div>
         )}
 

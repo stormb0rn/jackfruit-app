@@ -23,7 +23,7 @@ export const Characters = () => {
       setLoading(true)
       const data = await characterService.getAll()
 
-      // 为每个角色加载 Statuses 数量
+      // Load status count for each character
       const charactersWithCount = await Promise.all(
         data.map(async (char) => {
           const count = await characterService.getStatusesCount(char.character_id)
@@ -33,7 +33,7 @@ export const Characters = () => {
 
       setCharacters(charactersWithCount)
     } catch (error) {
-      message.error(`加载失败: ${error.message}`)
+      message.error(`Failed to load: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -59,10 +59,10 @@ export const Characters = () => {
   const handleDelete = async (characterId) => {
     try {
       await characterService.delete(characterId)
-      message.success('删除成功')
+      message.success('Deleted successfully')
       loadCharacters()
     } catch (error) {
-      message.error(`删除失败: ${error.message}`)
+      message.error(`Failed to delete: ${error.message}`)
     }
   }
 
@@ -71,9 +71,9 @@ export const Characters = () => {
       setUploading(true)
       const url = await characterService.uploadAvatar(file)
       setAvatarUrl(url)
-      message.success('Avatar 上传成功')
+      message.success('Avatar uploaded successfully')
     } catch (error) {
-      message.error(`上传失败: ${error.message}`)
+      message.error(`Failed to upload: ${error.message}`)
     } finally {
       setUploading(false)
     }
@@ -81,7 +81,7 @@ export const Characters = () => {
 
   const handleSubmit = async (values) => {
     if (!avatarUrl) {
-      message.error('请上传 Avatar 图片')
+      message.error('Please upload avatar image')
       return
     }
 
@@ -94,10 +94,10 @@ export const Characters = () => {
 
       if (editingCharacter) {
         await characterService.update(editingCharacter.character_id, characterData)
-        message.success('更新成功')
+        message.success('Updated successfully')
       } else {
         await characterService.create(characterData)
-        message.success('创建成功')
+        message.success('Created successfully')
       }
 
       setModalVisible(false)
@@ -105,7 +105,7 @@ export const Characters = () => {
       setAvatarUrl('')
       loadCharacters()
     } catch (error) {
-      message.error(`保存失败: ${error.message}`)
+      message.error(`Failed to save: ${error.message}`)
     }
   }
 
@@ -118,59 +118,62 @@ export const Characters = () => {
       render: (url) => <Avatar src={url} size={50} />
     },
     {
-      title: '名称',
+      title: 'Name',
       dataIndex: 'name',
       key: 'name'
     },
     {
-      title: '描述',
+      title: 'Description',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true
     },
     {
-      title: 'Statuses 数',
+      title: 'Status Count',
       dataIndex: 'statusesCount',
       key: 'statusesCount',
       width: 120,
       render: (count) => count || 0
     },
     {
-      title: '创建时间',
+      title: 'Created At',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 180,
-      render: (date) => new Date(date).toLocaleString('zh-CN')
+      render: (date) => new Date(date).toLocaleString('en-US')
     },
     {
-      title: '操作',
+      title: 'Actions',
       key: 'actions',
-      width: 200,
+      width: 250,
+      fixed: 'right',
       render: (_, record) => (
-        <Space>
+        <Space size="small">
           <Button
             type="link"
+            size="small"
             icon={<EyeOutlined />}
             onClick={() => navigate(`/admin/character-status/statuses?character=${record.character_id}`)}
           >
-            查看 Statuses
+            View
           </Button>
           <Button
             type="link"
+            size="small"
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
-            编辑
+            Edit
           </Button>
           <Popconfirm
-            title="确定删除这个角色吗？"
-            description="这将同时删除该角色的所有 Statuses"
+            title="Are you sure you want to delete this character?"
+            description="This will also delete all statuses for this character"
             onConfirm={() => handleDelete(record.character_id)}
-            okText="确定"
-            cancelText="取消"
+            okText="Yes"
+            cancelText="No"
           >
-            <Button type="link" danger icon={<DeleteOutlined />}>
-              删除
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+              Delete
             </Button>
           </Popconfirm>
         </Space>
@@ -181,9 +184,9 @@ export const Characters = () => {
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>AI Characters 管理</h2>
+        <h2>AI Characters Management</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          创建新 Character
+          Create New Character
         </Button>
       </div>
 
@@ -193,10 +196,11 @@ export const Characters = () => {
         rowKey="character_id"
         loading={loading}
         pagination={{ pageSize: 10 }}
+        scroll={{ x: 1000 }}
       />
 
       <Modal
-        title={editingCharacter ? '编辑 Character' : '创建新 Character'}
+        title={editingCharacter ? 'Edit Character' : 'Create New Character'}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         onOk={() => form.submit()}
@@ -205,17 +209,17 @@ export const Characters = () => {
         <Form form={form} onFinish={handleSubmit} layout="vertical">
           <Form.Item
             name="name"
-            label="角色名称"
-            rules={[{ required: true, message: '请输入角色名称' }]}
+            label="Character Name"
+            rules={[{ required: true, message: 'Please enter character name' }]}
           >
             <Input placeholder="e.g., Alex" />
           </Form.Item>
 
-          <Form.Item name="description" label="角色描述">
-            <Input.TextArea rows={3} placeholder="角色背景介绍..." />
+          <Form.Item name="description" label="Character Description">
+            <Input.TextArea rows={3} placeholder="Character background..." />
           </Form.Item>
 
-          <Form.Item label="Avatar 图片" required>
+          <Form.Item label="Avatar Image" required>
             <Upload
               customRequest={handleAvatarUpload}
               accept="image/*"
@@ -223,13 +227,13 @@ export const Characters = () => {
               disabled={uploading}
             >
               <Button icon={<UploadOutlined />} loading={uploading}>
-                {uploading ? '上传中...' : '上传 Avatar'}
+                {uploading ? 'Uploading...' : 'Upload Avatar'}
               </Button>
             </Upload>
             {avatarUrl && (
               <div style={{ marginTop: 10 }}>
                 <Avatar src={avatarUrl} size={100} />
-                <p style={{ marginTop: 8, color: '#52c41a' }}>✓ Avatar 已上传</p>
+                <p style={{ marginTop: 8, color: '#52c41a' }}>✓ Avatar Uploaded</p>
               </div>
             )}
           </Form.Item>
