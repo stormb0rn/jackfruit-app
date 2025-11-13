@@ -1,4 +1,5 @@
 import { AppRegistry } from 'react-native';
+import '@tamagui/core/reset.css';
 import App from './App.jsx';
 
 // Register the app

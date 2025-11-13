@@ -233,7 +233,9 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    background: 'linear-gradient(180deg, rgba(194, 190, 255, 0) 61.96%, rgba(194, 190, 255, 0.76) 99.96%)',
+    // Note: Linear gradients not supported in React Native StyleSheet
+    // Using transparent background instead
+    backgroundColor: 'transparent',
     pointerEvents: 'none',
     zIndex: 0,
   },

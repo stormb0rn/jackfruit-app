@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAppStore from './stores/appStore';
 import Landing from './pages/Landing';
@@ -13,6 +13,43 @@ import Profile from './pages/Profile';
 import ConfigAdmin from './pages/ConfigAdmin';
 import MobileFrameWrapper from './components/MobileFrameWrapper';
 import settingsService from './services/settingsService';
+
+// Error Boundary to catch rendering errors
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    this.setState({ error, errorInfo });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, padding: 20, backgroundColor: '#fff' }}>
+          <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 10, color: '#000' }}>
+            页面加载出错
+          </Text>
+          <Text style={{ fontSize: 16, marginBottom: 10, color: '#666' }}>
+            {this.state.error?.toString()}
+          </Text>
+          <Text style={{ fontSize: 14, color: '#999' }}>
+            请打开浏览器控制台查看详细错误信息
+          </Text>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function App() {
   const setCacheMode = useAppStore((state) => state.setCacheMode);
@@ -108,7 +145,9 @@ function App() {
           } />
           <Route path="/admin" element={
             <View style={styles.app}>
-              <ConfigAdmin />
+              <ErrorBoundary>
+                <ConfigAdmin />
+              </ErrorBoundary>
             </View>
           } />
         </Routes>

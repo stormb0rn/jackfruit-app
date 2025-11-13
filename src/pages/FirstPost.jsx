@@ -341,7 +341,9 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    background: 'linear-gradient(180deg, rgba(194, 190, 255, 0) 61.963%, rgba(194, 190, 255, 0.76) 100%)',
+    // Note: Linear gradients not supported in React Native StyleSheet
+    // Using transparent background instead
+    backgroundColor: 'transparent',
     pointerEvents: 'none',
     zIndex: 0,
   },
@@ -475,7 +477,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '40%',
-    background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.4) 100%)',
+    // Note: Linear gradients not supported in React Native StyleSheet
+    // Using semi-transparent black background instead
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   paginationContainer: {
     flexDirection: 'row',

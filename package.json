@@ -16,10 +16,15 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.79.0",
     "@tailwindcss/postcss": "^4.1.16",
+    "@tamagui/config": "^1.136.9",
+    "@tamagui/core": "^1.136.9",
+    "@tamagui/vite-plugin": "^1.136.9",
+    "@tamagui/web": "^1.136.9",
     "react": "^19.1.1",
     "react-dom": "^19.2.0",
     "react-native-web": "^0.21.2",
     "react-router-dom": "^7.9.5",
+    "tamagui": "^1.136.9",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -36,6 +41,7 @@
     "postcss": "^8.5.6",
     "qrcode-terminal": "^0.12.0",
     "tailwindcss": "^4.1.16",
+    "typescript": "^5.9.3",
     "vite": "^7.1.7"
   }
 }
