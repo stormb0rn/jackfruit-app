@@ -60,9 +60,12 @@ export const StatusOverlays = ({
 
   // HEALTH Overlay
   if (activeOverlay === 'health') {
-    const healthData = currentStatus.overlays_content?.health || {}
-    const healthLevel = healthData.level || 70
-    const healthMessage = healthData.message || 'AI You is feeling tired these days. Maybe an early night could help.'
+    const healthData = currentStatus.overlays_content?.health
+    // Handle both string and object formats
+    const healthLevel = typeof healthData === 'object' ? (healthData.level || 70) : 70
+    const healthMessage = typeof healthData === 'string'
+      ? healthData
+      : (typeof healthData === 'object' ? healthData.message : 'AI You is feeling tired these days. Maybe an early night could help.')
 
     return (
       <div style={overlayStyle}>
@@ -158,7 +161,7 @@ export const StatusOverlays = ({
                   }
                 }}
               >
-                {status.mood_name || 'Unknown Mood'}
+                {status.mood || status.mood_name || 'Unknown Mood'}
                 {isActive && (
                   <span style={{
                     marginLeft: 8,
