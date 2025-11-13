@@ -6,11 +6,8 @@ import {
 } from 'antd'
 import {
   SaveOutlined, ThunderboltOutlined, ArrowLeftOutlined,
-  UploadOutlined, PlusOutlined, DeleteOutlined, MenuOutlined
+  UploadOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined
 } from '@ant-design/icons'
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { statusService } from '../../services/statusService'
 import { characterService } from '../../services/characterService'
 
@@ -20,65 +17,72 @@ const MOOD_OPTIONS = [
   'happy', 'sad', 'excited', 'calm', 'anxious', 'angry', 'neutral'
 ]
 
-// Sortable Video Item Component
-const SortableVideoItem = ({ video, index, onDelete }) => {
+// Video Item Component with Up/Down buttons
+const VideoItem = ({ video, index, totalCount, onMoveUp, onMoveDown, onDelete }) => {
   const [showPlayer, setShowPlayer] = useState(false)
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: video.video_url })
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
     marginBottom: 16,
     padding: 16,
     border: '1px solid #f0f0f0',
     borderRadius: 4,
-    backgroundColor: '#fff',
-    cursor: 'move'
+    backgroundColor: '#fff'
   }
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <div {...attributes} {...listeners}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <MenuOutlined style={{ color: '#999' }} />
-            <Tag color="green">Video {index + 1}</Tag>
-            <span>{video.scene_prompt}</span>
-          </div>
-          <Space>
-            <Button
-              type="link"
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowPlayer(!showPlayer)
-              }}
-            >
-              {showPlayer ? 'Hide Player' : 'Show Player'}
-            </Button>
-            <Button
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(index)
-              }}
-            >
-              Delete
-            </Button>
-          </Space>
+    <div style={style}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Video Info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+          <Tag color="green">Video {index + 1} (Scene {video.scene_index + 1})</Tag>
+          <span>{video.scene_prompt}</span>
         </div>
+
+        {/* Action Buttons */}
+        <Space>
+          {/* Move Up Button */}
+          <Button
+            type="text"
+            size="small"
+            icon={<ArrowUpOutlined />}
+            onClick={() => onMoveUp(index)}
+            disabled={index === 0}
+            title="Move up"
+          />
+
+          {/* Move Down Button */}
+          <Button
+            type="text"
+            size="small"
+            icon={<ArrowDownOutlined />}
+            onClick={() => onMoveDown(index)}
+            disabled={index === totalCount - 1}
+            title="Move down"
+          />
+
+          {/* Show/Hide Player */}
+          <Button
+            type="link"
+            size="small"
+            onClick={() => setShowPlayer(!showPlayer)}
+          >
+            {showPlayer ? 'Hide Player' : 'Show Player'}
+          </Button>
+
+          {/* Delete Button */}
+          <Button
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={() => onDelete(index)}
+          >
+            Delete
+          </Button>
+        </Space>
       </div>
 
       {showPlayer && (
-        <div style={{ marginTop: 12, cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ marginTop: 12 }}>
           <video
             src={video.video_url}
             controls
@@ -378,28 +382,29 @@ export const StatusEditor = () => {
   const handleDeleteVideo = (index) => {
     const newPlaylist = videosPlaylist.filter((_, i) => i !== index)
     setVideosPlaylist(newPlaylist)
-    handleSave(true)
+    message.success('Video deleted')
   }
 
-  // Drag and drop
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
+  // Move video up
+  const handleMoveUp = (index) => {
+    if (index === 0) return
+    const newPlaylist = [...videosPlaylist]
+    const temp = newPlaylist[index]
+    newPlaylist[index] = newPlaylist[index - 1]
+    newPlaylist[index - 1] = temp
+    setVideosPlaylist(newPlaylist)
+    message.success('Video moved up')
+  }
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event
-
-    if (active.id !== over.id) {
-      const oldIndex = videosPlaylist.findIndex(v => v.video_url === active.id)
-      const newIndex = videosPlaylist.findIndex(v => v.video_url === over.id)
-
-      const newPlaylist = arrayMove(videosPlaylist, oldIndex, newIndex)
-      setVideosPlaylist(newPlaylist)
-      handleSave(true)
-    }
+  // Move video down
+  const handleMoveDown = (index) => {
+    if (index === videosPlaylist.length - 1) return
+    const newPlaylist = [...videosPlaylist]
+    const temp = newPlaylist[index]
+    newPlaylist[index] = newPlaylist[index + 1]
+    newPlaylist[index + 1] = temp
+    setVideosPlaylist(newPlaylist)
+    message.success('Video moved down')
   }
 
   // Render step content
@@ -680,23 +685,30 @@ export const StatusEditor = () => {
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         <div>
           <h4>Generate video for each scene:</h4>
-          {videoScenes.map((scene, index) => (
-            <div key={index} style={{ marginBottom: 16, padding: 16, border: '1px solid #f0f0f0', borderRadius: 4 }}>
-              <div style={{ marginBottom: 8 }}>
-                <Tag color="blue">Scene {index + 1}</Tag>
-                <span>{scene}</span>
+          {videoScenes.map((scene, index) => {
+            // Count how many videos have been generated for this scene
+            const generatedCount = videosPlaylist.filter(v => v.scene_index === index).length
+            const buttonText = generatedCount === 0
+              ? 'AI Generate'
+              : `Generate Again (${generatedCount} generated)`
+
+            return (
+              <div key={index} style={{ marginBottom: 16, padding: 16, border: '1px solid #f0f0f0', borderRadius: 4 }}>
+                <div style={{ marginBottom: 8 }}>
+                  <Tag color="blue">Scene {index + 1}</Tag>
+                  <span>{scene}</span>
+                </div>
+                <Button
+                  type="primary"
+                  icon={<ThunderboltOutlined />}
+                  onClick={() => handleGenerateVideo(index)}
+                  loading={generatingVideos[index]}
+                >
+                  {buttonText}
+                </Button>
               </div>
-              <Button
-                type="primary"
-                icon={<ThunderboltOutlined />}
-                onClick={() => handleGenerateVideo(index)}
-                loading={generatingVideos[index]}
-                disabled={videosPlaylist.some(v => v.scene_index === index)}
-              >
-                {videosPlaylist.some(v => v.scene_index === index) ? 'Generated' : 'Generate Video'}
-              </Button>
-            </div>
-          ))}
+            )
+          })}
 
           <Upload
             customRequest={handleUploadVideo}
@@ -712,27 +724,21 @@ export const StatusEditor = () => {
         <Divider />
 
         <div>
-          <h4>Videos Playlist ({videosPlaylist.length} videos) - Drag to reorder:</h4>
+          <h4>Videos Playlist ({videosPlaylist.length} videos) - Use arrows to reorder:</h4>
           {videosPlaylist.length > 0 ? (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={videosPlaylist.map(v => v.video_url)}
-                strategy={verticalListSortingStrategy}
-              >
-                {videosPlaylist.map((video, index) => (
-                  <SortableVideoItem
-                    key={video.video_url}
-                    video={video}
-                    index={index}
-                    onDelete={handleDeleteVideo}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
+            <div>
+              {videosPlaylist.map((video, index) => (
+                <VideoItem
+                  key={video.video_url}
+                  video={video}
+                  index={index}
+                  totalCount={videosPlaylist.length}
+                  onMoveUp={handleMoveUp}
+                  onMoveDown={handleMoveDown}
+                  onDelete={handleDeleteVideo}
+                />
+              ))}
+            </div>
           ) : (
             <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
               No videos yet. Generate or upload videos above.

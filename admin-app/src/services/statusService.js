@@ -188,7 +188,8 @@ export const statusService = {
     }
 
     const result = await response.json()
-    return result
+    // Edge Function returns {success: true, data: {...}}
+    return result.data || result
   },
 
   // 上传视频到 Storage
