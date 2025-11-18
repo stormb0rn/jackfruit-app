@@ -8,7 +8,8 @@ import {
   UserOutlined,
   AppstoreOutlined,
   FileTextOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  PlayCircleOutlined
 } from '@ant-design/icons'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 
@@ -24,6 +25,21 @@ export const AdminLayout = () => {
       key: '/admin',
       icon: <DashboardOutlined />,
       label: 'Dashboard'
+    },
+    {
+      key: 'onboarding',
+      icon: <PlayCircleOutlined />,
+      label: 'Onboarding Management',
+      children: [
+        {
+          key: '/admin/onboarding/configs',
+          label: 'Flow Configuration'
+        },
+        {
+          key: '/admin/onboarding/theme-full',
+          label: 'Theme & Media'
+        }
+      ]
     },
     {
       key: 'lookgen',
@@ -100,7 +116,7 @@ export const AdminLayout = () => {
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
-          defaultOpenKeys={['lookgen', 'character-status']}
+          defaultOpenKeys={['onboarding', 'lookgen', 'character-status']}
           items={menuItems}
           onClick={handleMenuClick}
         />

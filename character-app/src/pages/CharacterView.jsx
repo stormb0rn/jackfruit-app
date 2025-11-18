@@ -82,13 +82,14 @@ export const CharacterView = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          fontSize: 24
+          background: '#000',
+          color: '#00FF41',
+          fontSize: 24,
+          fontFamily: "'VT323', monospace"
         }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ marginBottom: 16, fontSize: 48 }}>⏳</div>
-            <div>Loading...</div>
+            <div>&gt; LOADING CHARACTER...</div>
           </div>
         </div>
       </MobileFrame>

@@ -10,6 +10,9 @@ import { Statuses } from './pages/character-status/Statuses'
 import { StatusEditor } from './pages/character-status/StatusEditor'
 import { Transformations } from './pages/lookgen/Transformations'
 import { Templates } from './pages/lookgen/Templates'
+import { OnboardingConfigs } from './pages/onboarding/OnboardingConfigs'
+import { OnboardingThemeEditor } from './pages/onboarding/OnboardingThemeEditor'
+import { OnboardingThemeEditorFull } from './pages/onboarding/OnboardingThemeEditorFull'
 
 function App() {
   return (
@@ -18,6 +21,11 @@ function App() {
         <Routes>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Dashboard />} />
+
+            {/* Onboarding 管理 */}
+            <Route path="onboarding/configs" element={<OnboardingConfigs />} />
+            <Route path="onboarding/theme" element={<OnboardingThemeEditor />} />
+            <Route path="onboarding/theme-full" element={<OnboardingThemeEditorFull />} />
 
             {/* LookGen 管理 */}
             <Route path="lookgen/transformations" element={<Transformations />} />
