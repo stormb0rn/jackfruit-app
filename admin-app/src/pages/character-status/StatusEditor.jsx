@@ -1,0 +1,797 @@
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import {
+  Card, Steps, Form, Input, Select, Button, Space, message, Spin,
+  Divider, Row, Col, Image, Upload, Tag, Modal
+} from 'antd'
+import {
+  SaveOutlined, ThunderboltOutlined, ArrowLeftOutlined,
+  UploadOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined
+} from '@ant-design/icons'
+import { statusService } from '../../services/statusService'
+import { characterService } from '../../services/characterService'
+
+const { TextArea } = Input
+
+const MOOD_OPTIONS = [
+  'happy', 'sad', 'excited', 'calm', 'anxious', 'angry', 'neutral'
+]
+
+// Video Item Component with Up/Down buttons
+const VideoItem = ({ video, index, totalCount, onMoveUp, onMoveDown, onDelete }) => {
+  const [showPlayer, setShowPlayer] = useState(false)
+
+  const style = {
+    marginBottom: 16,
+    padding: 16,
+    border: '1px solid #f0f0f0',
+    borderRadius: 4,
+    backgroundColor: '#fff'
+  }
+
+  return (
+    <div style={style}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Video Info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+          <Tag color="green">Video {index + 1} (Scene {video.scene_index + 1})</Tag>
+          <span>{video.scene_prompt}</span>
+        </div>
+
+        {/* Action Buttons */}
+        <Space>
+          {/* Move Up Button */}
+          <Button
+            type="text"
+            size="small"
+            icon={<ArrowUpOutlined />}
+            onClick={() => onMoveUp(index)}
+            disabled={index === 0}
+            title="Move up"
+          />
+
+          {/* Move Down Button */}
+          <Button
+            type="text"
+            size="small"
+            icon={<ArrowDownOutlined />}
+            onClick={() => onMoveDown(index)}
+            disabled={index === totalCount - 1}
+            title="Move down"
+          />
+
+          {/* Show/Hide Player */}
+          <Button
+            type="link"
+            size="small"
+            onClick={() => setShowPlayer(!showPlayer)}
+          >
+            {showPlayer ? 'Hide Player' : 'Show Player'}
+          </Button>
+
+          {/* Delete Button */}
+          <Button
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={() => onDelete(index)}
+          >
+            Delete
+          </Button>
+        </Space>
+      </div>
+
+      {showPlayer && (
+        <div style={{ marginTop: 12 }}>
+          <video
+            src={video.video_url}
+            controls
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              borderRadius: 4,
+              border: '1px solid #d9d9d9'
+            }}
+          >
+            Your browser does not support video playback
+          </video>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export const StatusEditor = () => {
+  const { statusId } = useParams()
+  const navigate = useNavigate()
+  const isEditMode = Boolean(statusId && statusId !== 'new')
+
+  const [form] = Form.useForm()
+  const [characters, setCharacters] = useState([])
+  const [status, setStatus] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [currentStep, setCurrentStep] = useState(0)
+
+  // Step 1 state
+  const [generatingText, setGeneratingText] = useState(false)
+  const [overlaysContent, setOverlaysContent] = useState({ now: '', health: '' })
+  const [suggestionsList, setSuggestionsList] = useState([])
+  const [videoScenes, setVideoScenes] = useState([])
+
+  // Step 2 state
+  const [generatingImage, setGeneratingImage] = useState(false)
+  const [startingImageUrl, setStartingImageUrl] = useState('')
+  const [startingImagePrompt, setStartingImagePrompt] = useState('')
+  const [selectedSceneIndex, setSelectedSceneIndex] = useState(0)
+  const [uploadingImage, setUploadingImage] = useState(false)
+
+  // Step 3 state
+  const [generatingVideos, setGeneratingVideos] = useState({})
+  const [videosPlaylist, setVideosPlaylist] = useState([])
+  const [uploadingVideo, setUploadingVideo] = useState(false)
+
+  useEffect(() => {
+    loadCharacters()
+    if (isEditMode) {
+      loadStatus()
+    }
+  }, [statusId])
+
+  const loadCharacters = async () => {
+    try {
+      const data = await characterService.getAll()
+      setCharacters(data)
+    } catch (error) {
+      message.error(`Load characters failed: ${error.message}`)
+    }
+  }
+
+  const loadStatus = async () => {
+    try {
+      setLoading(true)
+      const data = await statusService.getById(statusId)
+      setStatus(data)
+
+      // Fill form
+      form.setFieldsValue({
+        character_id: data.character_id,
+        title: data.title,
+        mood: data.mood,
+        status_description: data.status_description
+      })
+
+      // Restore state
+      setCurrentStep(data.generation_step)
+      setOverlaysContent(data.overlays_content || { now: '', health: '' })
+      setSuggestionsList(data.suggestions_list || [])
+      setVideoScenes(data.video_scenes || [])
+      setStartingImageUrl(data.starting_image_url || '')
+      setVideosPlaylist(data.videos_playlist || [])
+    } catch (error) {
+      message.error(`Load failed: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Save
+  const handleSave = async (autoSave = false) => {
+    try {
+      const values = await form.validateFields()
+      setSaving(true)
+
+      const statusData = {
+        character_id: values.character_id,
+        title: values.title,
+        mood: values.mood,
+        status_description: values.status_description,
+        generation_step: currentStep,
+        generation_status: currentStep === 3 ? 'completed' : 'draft',
+        overlays_content: overlaysContent,
+        suggestions_list: suggestionsList,
+        video_scenes: videoScenes,
+        starting_image_url: startingImageUrl,
+        videos_playlist: videosPlaylist
+      }
+
+      let result
+      if (isEditMode) {
+        result = await statusService.update(statusId, statusData)
+      } else {
+        result = await statusService.create(statusData)
+        navigate(`/admin/character-status/statuses/${result.status_id}`, { replace: true })
+      }
+
+      setStatus(result)
+      if (!autoSave) {
+        message.success('Saved successfully')
+      }
+    } catch (error) {
+      if (!autoSave) {
+        message.error(`Save failed: ${error.message}`)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Step 1: Generate text content
+  const handleGenerateText = async () => {
+    try {
+      await form.validateFields(['character_id', 'mood', 'status_description'])
+      const values = form.getFieldsValue()
+
+      await handleSave(true)
+
+      setGeneratingText(true)
+      const result = await statusService.generateTextContent(
+        status?.status_id || statusId,
+        values.character_id,
+        values.mood,
+        values.status_description
+      )
+
+      // 确保数据格式正确
+      setOverlaysContent(result.overlays || { now: '', health: '' })
+      setSuggestionsList(result.suggestions || [])
+      setVideoScenes(result.video_scenes || [])
+      setCurrentStep(1)
+
+      message.success('Text content generated')
+      await handleSave(true)
+    } catch (error) {
+      message.error(`Generation failed: ${error.message}`)
+    } finally {
+      setGeneratingText(false)
+    }
+  }
+
+  // Step 2: Generate starting image
+  const handleGenerateImage = async () => {
+    console.log('🎬 handleGenerateImage called')
+    console.log('videoScenes:', videoScenes)
+    console.log('status:', status)
+    console.log('statusId:', statusId)
+
+    if (!videoScenes || videoScenes.length === 0) {
+      message.error('Please generate video scenes first')
+      return
+    }
+
+    if (!status?.character?.avatar_url) {
+      message.error('Character missing avatar')
+      return
+    }
+
+    try {
+      setGeneratingImage(true)
+      const selectedScene = videoScenes[selectedSceneIndex] || videoScenes[0]
+
+      console.log('📸 Calling generateStartingImage with:', {
+        statusId,
+        avatar_url: status.character.avatar_url,
+        selectedScene,
+        mood: form.getFieldValue('mood')
+      })
+
+      const result = await statusService.generateStartingImage(
+        statusId,
+        status.character.avatar_url,
+        selectedScene,
+        form.getFieldValue('mood')
+      )
+
+      console.log('✅ Generation result:', result)
+      setStartingImageUrl(result.starting_image_url)
+      setStartingImagePrompt(result.prompt_used || selectedScene)
+      setCurrentStep(2)
+      message.success('Starting image generated')
+
+      await handleSave(true)
+    } catch (error) {
+      console.error('❌ Generation error:', error)
+      message.error(`Generation failed: ${error.message}`)
+    } finally {
+      setGeneratingImage(false)
+    }
+  }
+
+  const handleUploadImage = async ({ file }) => {
+    try {
+      setUploadingImage(true)
+      const url = await statusService.uploadImage(file)
+      setStartingImageUrl(url)
+      setCurrentStep(2)
+      message.success('Image uploaded')
+
+      await handleSave(true)
+    } catch (error) {
+      message.error(`Upload failed: ${error.message}`)
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  // Step 3: Generate video
+  const handleGenerateVideo = async (sceneIndex) => {
+    if (!startingImageUrl) {
+      message.error('Please generate starting image first')
+      return
+    }
+
+    if (!videoScenes || !videoScenes[sceneIndex]) {
+      message.error('Scene does not exist')
+      return
+    }
+
+    try {
+      setGeneratingVideos(prev => ({ ...prev, [sceneIndex]: true }))
+
+      const result = await statusService.generateSingleVideo(
+        statusId,
+        startingImageUrl,
+        videoScenes[sceneIndex],
+        form.getFieldValue('mood'),
+        3
+      )
+
+      const newVideo = {
+        scene_index: sceneIndex,
+        video_url: result.video_url,
+        scene_prompt: videoScenes[sceneIndex],
+        duration: 3
+      }
+
+      setVideosPlaylist(prev => [...prev, newVideo])
+      setCurrentStep(3)
+      message.success(`Scene ${sceneIndex + 1} video generated`)
+
+      await handleSave(true)
+    } catch (error) {
+      message.error(`Generation failed: ${error.message}`)
+    } finally {
+      setGeneratingVideos(prev => ({ ...prev, [sceneIndex]: false }))
+    }
+  }
+
+  const handleUploadVideo = async ({ file }) => {
+    try {
+      setUploadingVideo(true)
+      const url = await statusService.uploadVideo(file)
+
+      const newVideo = {
+        scene_index: videosPlaylist.length,
+        video_url: url,
+        scene_prompt: 'Manual upload',
+        duration: 3
+      }
+
+      setVideosPlaylist(prev => [...prev, newVideo])
+      setCurrentStep(3)
+      message.success('Video uploaded')
+
+      await handleSave(true)
+    } catch (error) {
+      message.error(`Upload failed: ${error.message}`)
+    } finally {
+      setUploadingVideo(false)
+    }
+  }
+
+  const handleDeleteVideo = (index) => {
+    const newPlaylist = videosPlaylist.filter((_, i) => i !== index)
+    setVideosPlaylist(newPlaylist)
+    message.success('Video deleted')
+  }
+
+  // Move video up
+  const handleMoveUp = (index) => {
+    if (index === 0) return
+    const newPlaylist = [...videosPlaylist]
+    const temp = newPlaylist[index]
+    newPlaylist[index] = newPlaylist[index - 1]
+    newPlaylist[index - 1] = temp
+    setVideosPlaylist(newPlaylist)
+    message.success('Video moved up')
+  }
+
+  // Move video down
+  const handleMoveDown = (index) => {
+    if (index === videosPlaylist.length - 1) return
+    const newPlaylist = [...videosPlaylist]
+    const temp = newPlaylist[index]
+    newPlaylist[index] = newPlaylist[index + 1]
+    newPlaylist[index + 1] = temp
+    setVideosPlaylist(newPlaylist)
+    message.success('Video moved down')
+  }
+
+  // Render step content
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0:
+        return renderStep0()
+      case 1:
+        return renderStep1()
+      case 2:
+        return renderStep2()
+      case 3:
+        return renderStep3()
+      default:
+        return renderStep0()
+    }
+  }
+
+  // Step 0: Basic info
+  const renderStep0 = () => (
+    <Card title="Basic Information" style={{ marginTop: 24 }}>
+      <Form form={form} layout="vertical">
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="character_id"
+              label="Select Character"
+              rules={[{ required: true, message: 'Please select character' }]}
+            >
+              <Select
+                placeholder="Select character"
+                options={characters.map(char => ({
+                  value: char.character_id,
+                  label: char.name
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="mood"
+              label="Mood"
+              rules={[{ required: true, message: 'Please select mood' }]}
+            >
+              <Select
+                placeholder="Select mood"
+                options={MOOD_OPTIONS.map(mood => ({
+                  value: mood,
+                  label: mood
+                }))}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Form.Item
+          name="title"
+          label="Status Title"
+          rules={[{ required: true, message: 'Please enter title' }]}
+        >
+          <Input placeholder="e.g., Morning Running" />
+        </Form.Item>
+
+        <Form.Item
+          name="status_description"
+          label="Status Description"
+          rules={[{ required: true, message: 'Please enter description' }]}
+        >
+          <TextArea
+            rows={4}
+            placeholder="Describe this status in detail, AI will generate content based on this..."
+          />
+        </Form.Item>
+      </Form>
+
+      <Divider />
+
+      <Space>
+        <Button type="primary" onClick={() => { setCurrentStep(1); handleSave(true) }}>
+          Next: Generate Text Content
+        </Button>
+        <Button onClick={handleSave} loading={saving} icon={<SaveOutlined />}>
+          Save Draft
+        </Button>
+      </Space>
+    </Card>
+  )
+
+  // Step 1: Text content generation
+  const renderStep1 = () => (
+    <Card title="Step 1: Text Content Generation" style={{ marginTop: 24 }}>
+      <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <div>
+          <Button
+            type="primary"
+            icon={<ThunderboltOutlined />}
+            onClick={handleGenerateText}
+            loading={generatingText}
+            size="large"
+          >
+            AI Generate Text Content
+          </Button>
+          <div style={{ marginTop: 8, color: '#888' }}>
+            Will call Gemini API to generate overlays, suggestions and video scenes
+          </div>
+        </div>
+
+        <Divider />
+
+        <div>
+          <h4>Overlays Content</h4>
+          <Row gutter={16}>
+            <Col span={12}>
+              <div style={{ marginBottom: 8 }}>NOW:</div>
+              <TextArea
+                rows={3}
+                value={overlaysContent.now}
+                onChange={(e) => setOverlaysContent({ ...overlaysContent, now: e.target.value })}
+                placeholder="NOW panel content..."
+              />
+            </Col>
+            <Col span={12}>
+              <div style={{ marginBottom: 8 }}>HEALTH:</div>
+              <TextArea
+                rows={3}
+                value={overlaysContent.health}
+                onChange={(e) => setOverlaysContent({ ...overlaysContent, health: e.target.value })}
+                placeholder="HEALTH panel content..."
+              />
+            </Col>
+          </Row>
+        </div>
+
+        <div>
+          <h4>Suggestions List</h4>
+          {suggestionsList.map((suggestion, index) => (
+            <div key={index} style={{ marginBottom: 8 }}>
+              <Input
+                value={suggestion}
+                onChange={(e) => {
+                  const newList = [...suggestionsList]
+                  newList[index] = e.target.value
+                  setSuggestionsList(newList)
+                }}
+                addonAfter={
+                  <DeleteOutlined
+                    onClick={() => setSuggestionsList(suggestionsList.filter((_, i) => i !== index))}
+                  />
+                }
+              />
+            </div>
+          ))}
+          <Button
+            icon={<PlusOutlined />}
+            onClick={() => setSuggestionsList([...suggestionsList, ''])}
+          >
+            Add Suggestion
+          </Button>
+        </div>
+
+        <div>
+          <h4>Video Scenes</h4>
+          {videoScenes.map((scene, index) => (
+            <div key={index} style={{ marginBottom: 8 }}>
+              <Tag color="blue">Scene {index + 1}</Tag>
+              <TextArea
+                rows={2}
+                value={scene}
+                onChange={(e) => {
+                  const newScenes = [...videoScenes]
+                  newScenes[index] = e.target.value
+                  setVideoScenes(newScenes)
+                }}
+                style={{ marginTop: 8 }}
+              />
+            </div>
+          ))}
+          <Button
+            icon={<PlusOutlined />}
+            onClick={() => setVideoScenes([...videoScenes, ''])}
+          >
+            Add Scene
+          </Button>
+        </div>
+
+        <Divider />
+
+        <Space>
+          <Button onClick={() => setCurrentStep(0)}>Previous</Button>
+          <Button type="primary" onClick={() => { setCurrentStep(2); handleSave(true) }}>
+            Next: Generate Starting Image
+          </Button>
+          <Button onClick={handleSave} loading={saving} icon={<SaveOutlined />}>
+            Save
+          </Button>
+        </Space>
+      </Space>
+    </Card>
+  )
+
+  // Step 2: Starting image generation
+  const renderStep2 = () => (
+    <Card title="Step 2: Starting Image Generation" style={{ marginTop: 24 }}>
+      <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <div>
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ marginRight: 8 }}>Select Scene:</span>
+            <Select
+              style={{ width: 300 }}
+              value={selectedSceneIndex}
+              onChange={setSelectedSceneIndex}
+              options={videoScenes.map((scene, index) => ({
+                value: index,
+                label: `Scene ${index + 1}: ${scene.substring(0, 50)}...`
+              }))}
+            />
+          </div>
+
+          <Space>
+            <Button
+              type="primary"
+              icon={<ThunderboltOutlined />}
+              onClick={handleGenerateImage}
+              loading={generatingImage}
+              size="large"
+            >
+              AI Generate Starting Image
+            </Button>
+            <Upload
+              customRequest={handleUploadImage}
+              accept="image/*"
+              showUploadList={false}
+            >
+              <Button icon={<UploadOutlined />} loading={uploadingImage}>
+                Manual Upload Image
+              </Button>
+            </Upload>
+          </Space>
+        </div>
+
+        {startingImageUrl && (
+          <div>
+            <h4>Starting Image Preview:</h4>
+            <Image src={startingImageUrl} width={300} />
+            {startingImagePrompt && (
+              <div style={{ marginTop: 12, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 12, color: '#666' }}>
+                  Generation Prompt:
+                </div>
+                <div style={{ fontSize: 13, color: '#333' }}>{startingImagePrompt}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <Divider />
+
+        <Space>
+          <Button onClick={() => setCurrentStep(1)}>Previous</Button>
+          <Button
+            type="primary"
+            onClick={() => { setCurrentStep(3); handleSave(true) }}
+            disabled={!startingImageUrl}
+          >
+            Next: Generate Videos
+          </Button>
+          <Button onClick={handleSave} loading={saving} icon={<SaveOutlined />}>
+            Save
+          </Button>
+        </Space>
+      </Space>
+    </Card>
+  )
+
+  // Step 3: Video generation
+  const renderStep3 = () => (
+    <Card title="Step 3: Video Generation" style={{ marginTop: 24 }}>
+      <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <div>
+          <h4>Generate video for each scene:</h4>
+          {videoScenes.map((scene, index) => {
+            // Count how many videos have been generated for this scene
+            const generatedCount = videosPlaylist.filter(v => v.scene_index === index).length
+            const buttonText = generatedCount === 0
+              ? 'AI Generate'
+              : `Generate Again (${generatedCount} generated)`
+
+            return (
+              <div key={index} style={{ marginBottom: 16, padding: 16, border: '1px solid #f0f0f0', borderRadius: 4 }}>
+                <div style={{ marginBottom: 8 }}>
+                  <Tag color="blue">Scene {index + 1}</Tag>
+                  <span>{scene}</span>
+                </div>
+                <Button
+                  type="primary"
+                  icon={<ThunderboltOutlined />}
+                  onClick={() => handleGenerateVideo(index)}
+                  loading={generatingVideos[index]}
+                >
+                  {buttonText}
+                </Button>
+              </div>
+            )
+          })}
+
+          <Upload
+            customRequest={handleUploadVideo}
+            accept="video/*"
+            showUploadList={false}
+          >
+            <Button icon={<UploadOutlined />} loading={uploadingVideo}>
+              Manual Upload Video
+            </Button>
+          </Upload>
+        </div>
+
+        <Divider />
+
+        <div>
+          <h4>Videos Playlist ({videosPlaylist.length} videos) - Use arrows to reorder:</h4>
+          {videosPlaylist.length > 0 ? (
+            <div>
+              {videosPlaylist.map((video, index) => (
+                <VideoItem
+                  key={video.video_url}
+                  video={video}
+                  index={index}
+                  totalCount={videosPlaylist.length}
+                  onMoveUp={handleMoveUp}
+                  onMoveDown={handleMoveDown}
+                  onDelete={handleDeleteVideo}
+                />
+              ))}
+            </div>
+          ) : (
+            <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
+              No videos yet. Generate or upload videos above.
+            </div>
+          )}
+        </div>
+
+        <Divider />
+
+        <Space>
+          <Button onClick={() => setCurrentStep(2)}>Previous</Button>
+          <Button type="primary" onClick={handleSave} loading={saving}>
+            Complete and Save
+          </Button>
+        </Space>
+      </Space>
+    </Card>
+  )
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: 100 }}>
+        <Spin size="large" />
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: 24 }}>
+      <div style={{ marginBottom: 24 }}>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/admin/character-status/statuses')}
+        >
+          Back to List
+        </Button>
+        <h2 style={{ marginTop: 16 }}>
+          {isEditMode ? `Edit Status: ${status?.title || ''}` : 'Create New Status'}
+        </h2>
+      </div>
+
+      <Steps
+        current={currentStep}
+        items={[
+          { title: 'Basic Info', description: 'Fill basic information' },
+          { title: 'Text Content', description: 'AI generate or manual edit' },
+          { title: 'Starting Image', description: 'Generate or upload image' },
+          { title: 'Video Generation', description: 'Generate video playlist' }
+        ]}
+        onChange={setCurrentStep}
+      />
+
+      {renderStepContent()}
+    </div>
+  )
+}

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fix Missing Video URLs</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>Fix Missing Video URLs</h1>
+  <button onclick="fixVideos()">Fix Videos for Status 418b2b76-7095-4130-847c-8ab0dbf96aab</button>
+  <button onclick="checkStorage()">Check Storage Permissions</button>
+  <pre id="output"></pre>
+
+  <script>
+    const SUPABASE_URL = 'https://fwytawawmtenhbnwhunc.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3eXRhd2F3bXRlbmhibndodW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODA3MjcsImV4cCI6MjA3Nzk1NjcyN30.oJSo5rG7U4HcA0L5lAPechmyKWLLcB0ce0nNmSxnqhA'
+
+    const { createClient } = supabase
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    function log(msg) {
+      const output = document.getElementById('output')
+      output.textContent += msg + '\n'
+      console.log(msg)
+    }
+
+    async function checkStorage() {
+      log('=== Checking Storage Permissions ===')
+
+      try {
+        // Try to list files in character-videos bucket
+        const { data, error } = await client.storage
+          .from('character-videos')
+          .list('videos', {
+            limit: 5
+          })
+
+        if (error) {
+          log('❌ Storage list error: ' + error.message)
+        } else {
+          log('✅ Storage accessible, found ' + data.length + ' files')
+          data.forEach(file => {
+            log('  - ' + file.name)
+          })
+        }
+      } catch (e) {
+        log('❌ Exception: ' + e.message)
+      }
+    }
+
+    async function fixVideos() {
+      log('=== Fixing Videos ===')
+      const statusId = '418b2b76-7095-4130-847c-8ab0dbf96aab'
+
+      try {
+        // Get current status data
+        const { data: status, error } = await client
+          .from('character_statuses')
+          .select('videos_playlist')
+          .eq('status_id', statusId)
+          .single()
+
+        if (error) throw error
+
+        log('Current playlist:')
+        log(JSON.stringify(status.videos_playlist, null, 2))
+
+        // Note: The videos without video_url were never generated successfully
+        // They only have scene_prompt and scene_index, meaning the generation failed
+        log('\n⚠️ Videos without video_url were not successfully generated.')
+        log('Please regenerate them using the "AI Generate" button.')
+
+      } catch (e) {
+        log('❌ Error: ' + e.message)
+      }
+    }
+  </script>
+</body>
+</html>

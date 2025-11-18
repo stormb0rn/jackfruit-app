@@ -4,202 +4,373 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**LookGen** is a cross-platform social media application built with React Native Web that enables users to:
-1. Upload identity photos
-2. Apply AI-powered transformations (5 types: better-looking, Japanese style, more male, more female, fair skin)
-3. Choose from style templates
-4. Create multi-photo carousel posts
-5. Browse social feeds with likes and comments
-6. View user profiles with statistics
+This is a **monorepo** containing three separate applications:
 
-The application supports web, iOS, and Android through a single codebase using React Native Web.
+### 1. LookGen (Root Directory `/`)
+Social media app for AI-powered photo transformations:
+- Upload identity photos
+- Apply 5 transformation types (better-looking, Japanese style, more male/female, fair skin)
+- Choose from style templates
+- Create multi-photo carousel posts
+- Browse social feeds with likes/comments
+- Built with React Native Web (cross-platform: web, iOS, Android)
+
+### 2. Character App (`/character-app`)
+AI virtual character interaction system:
+- **Onboarding System**: Modular 7-step user identity creation flow (configurable via database)
+- View AI characters with dynamic moods/health/statuses
+- Video-based character display with smooth clip transitions
+- Real-time status changes based on mood selection
+- Mobile-first TikTok-style vertical video UI
+- Framer Motion animations for overlays
+- Built with React (traditional web app, not React Native Web)
+
+### 3. Admin Panel (`/admin-app`)
+Management interface for Character Status system:
+- Create and manage AI characters
+- Configure character statuses (mood, health, actions)
+- **Onboarding Configuration**: Visual editor for onboarding flows (steps, visual themes, copy)
+- 3-step AI content generation workflow (Gemini → FAL SeeDrawm → FAL SeeDance)
+- Asset library management (clothing, locations, props)
+- System prompt configuration
+- Drag-and-drop video playlist ordering
+- Built with React + Ant Design
 
 ## Quick Commands
 
-### Development
+### LookGen (Root App)
 ```bash
 npm install              # Install dependencies
 npm run dev              # Start dev server (http://localhost:5173)
 npm run build            # Build for production
 npm run lint             # Run ESLint
-npm run preview          # Preview production build locally
+npm run preview          # Preview production build
 npm run clear-cache      # Clear cached transformation results
 ```
 
-### Supabase
+### Character App
 ```bash
-supabase start           # Start local Supabase instance
-supabase functions deploy batch-transform    # Deploy edge function
-supabase functions deploy transform-image    # Deploy edge function
-supabase db push         # Push migrations to project
+cd character-app
+npm install
+npm run dev              # Runs on different port than root app
+npm run build
+```
+
+### Admin Panel
+```bash
+cd admin-app
+npm install
+npm run dev              # Runs on different port
+npm run build
+```
+
+### Supabase (Shared Backend)
+```bash
+supabase start                          # Start local Supabase (postgres, studio, edge functions)
+supabase db push                        # Push migrations to remote
+supabase functions deploy <name>        # Deploy specific edge function
+supabase functions list                 # List all edge functions
+
+# Edge functions:
+# - transform-image: Single image transformation (LookGen)
+# - batch-transform: Batch image transformation (LookGen)
+# - generate-text-content: Gemini text generation (Character system)
+# - generate-starting-image: FAL SeeDrawm image generation (Character system)
+# - generate-single-video: FAL SeeDance video generation (Character system)
+# - batch-image-generation: Batch image processing (Character system)
 ```
 
 ## Architecture Overview
 
-### Technology Stack
-- **Frontend Framework**: React 19 + React Native Web 0.21 (not traditional HTML/React)
-- **State Management**: Zustand 5.0 (lightweight, localStorage-compatible)
-- **Backend**: Supabase (database, storage, edge functions, authentication)
-- **AI Service**: FAL API (image transformations)
-- **Build Tool**: Vite 7.1
-- **Deployment**: Vercel
+### Technology Stack by App
 
-### Key Design Principle: React Native Web
-This is NOT a traditional React web app. Code uses React Native components (`View`, `Text`, `TouchableOpacity`, `StyleSheet`) instead of HTML DOM elements. This enables:
-- Same codebase for web, iOS, and Android
-- Mobile-first design by default
-- Platform.select() for platform-specific code
-- React Native StyleSheet API instead of CSS classes
+**LookGen (Root):**
+- React 19 + **React Native Web 0.21** (NOT traditional HTML/React)
+- Zustand 5.0 (state + localStorage persistence)
+- Vite 7.1 build tool
+- Tamagui (UI component library, optional)
+- Cross-platform: web, iOS, Android
 
-**Important**: When making UI changes, use React Native components, not HTML elements.
+**Character App:**
+- React 19 (traditional web app with HTML elements)
+- Framer Motion 12 (animations)
+- Vite 7.1 build tool
+- No state management library (uses React hooks)
+- Video playback with smooth transitions
+
+**Admin Panel:**
+- React 19 (traditional web app)
+- Ant Design 5.28 (UI components)
+- @dnd-kit (drag-and-drop for video ordering)
+- React Router DOM 7.9
+
+**Shared Backend:**
+- Supabase (PostgreSQL, Storage, Edge Functions)
+- AI APIs: FAL (image/video generation), Google Gemini (text generation)
+- Storage buckets: photos, videos, cached_generations
+
+### Critical Distinction: LookGen Uses React Native Web
+
+**LookGen ONLY**: Code uses React Native components (`View`, `Text`, `TouchableOpacity`, `StyleSheet`) instead of HTML DOM elements.
+
+```javascript
+// ✅ LookGen (React Native Web)
+import { View, Text, TouchableOpacity } from 'react-native'
+
+// ✅ Character App & Admin Panel (Traditional React)
+<div>, <button>, <h1>, className, etc.
+```
+
+**When working on LookGen**, you MUST use React Native components. Character App and Admin Panel use normal HTML/React patterns.
 
 ### Project Structure
 ```
-src/
-├── pages/                    # Main application views (7 pages)
-│   ├── Landing.jsx          # Entry page with background video
-│   ├── IdentityUpload.jsx    # Photo upload (identity)
-│   ├── EditLook.jsx          # Transformation type selection
-│   ├── Templates.jsx         # Style template selection
-│   ├── CreatePost.jsx        # Multi-photo carousel creation
-│   ├── Feed.jsx              # Social feed with likes/comments
-│   ├── Profile.jsx           # User profile with stats
-│   └── ConfigAdmin.jsx       # Admin configuration interface
+/ (LookGen root app)
+├── src/
+│   ├── pages/               # React Native Web pages
+│   │   ├── Landing.jsx
+│   │   ├── IdentityUpload.jsx
+│   │   ├── EditLook.jsx
+│   │   ├── Templates.jsx
+│   │   ├── CreatePost.jsx
+│   │   ├── Feed.jsx
+│   │   └── Profile.jsx
+│   ├── stores/appStore.js   # Zustand global state
+│   ├── services/            # API services
+│   │   ├── supabaseClient.js
+│   │   ├── supabaseApi.js
+│   │   ├── falApi.js
+│   │   └── configService.js
+│   └── config/              # JSON config files
+│       ├── style_templates.json
+│       └── transformation_prompts.json
 │
-├── services/
-│   ├── supabaseClient.js     # Supabase client initialization
-│   ├── supabaseApi.js        # Supabase edge function calls (transformImage, batchTransform)
-│   ├── falApi.js             # FAL API for image transformations (fallback/local)
-│   ├── configService.js      # Configuration management
-│   ├── cacheService.js       # Cache system for demo mode
-│   ├── settingsService.js    # Global settings (cache mode toggles)
-│   └── api.js                # Legacy API placeholder
+character-app/ (AI Character Viewer)
+├── src/
+│   ├── pages/
+│   │   ├── Onboarding/          # Modular 7-step onboarding system
+│   │   │   ├── OnboardingEngine.jsx  # State machine & step router
+│   │   │   ├── Step1Splash.jsx       # Splash screen
+│   │   │   ├── Step2Guidance.jsx     # Assistant introduction
+│   │   │   ├── Step3Identity.jsx     # Identity input (name/photo/voice)
+│   │   │   ├── Step4Choice.jsx       # Core choice (keep self vs become other)
+│   │   │   ├── Step5Creation.jsx     # AI identity creation
+│   │   │   ├── Step6Finalizing.jsx   # Confirmation & loading
+│   │   │   └── Step7Entry.jsx        # Entry to main app
+│   │   ├── CharacterList.jsx    # Character selection screen
+│   │   └── CharacterView.jsx    # Main character interaction view
+│   ├── components/character/
+│   │   ├── VideoPlayer.jsx      # Video background with smooth transitions
+│   │   ├── StatusIndicators.jsx # Left sidebar (NOW/HEALTH/MOOD buttons)
+│   │   ├── StatusOverlays.jsx   # Overlay panels (mood selector, etc.)
+│   │   ├── TopBar.jsx           # Top navigation
+│   │   └── BottomSection.jsx    # Action suggestions + navigation
+│   ├── hooks/
+│   │   ├── useOnboardingConfig.js    # Load config from Supabase
+│   │   ├── useStepNavigation.js      # Step transition logic
+│   │   └── useUserData.js            # User data persistence
+│   └── services/
+│       ├── supabaseClient.js
+│       ├── characterService.js       # Character CRUD operations
+│       └── onboardingService.js      # Onboarding config & session management
 │
-├── stores/
-│   └── appStore.js           # Global Zustand state (identity, transformations, posts, cache mode)
+admin-app/ (Character Admin Panel)
+├── src/
+│   ├── pages/
+│   │   ├── onboarding/
+│   │   │   ├── OnboardingConfigManagement.jsx  # CRUD for onboarding_configs
+│   │   │   └── OnboardingSessionsView.jsx      # View user onboarding sessions
+│   │   ├── CharacterManagement.jsx    # CRUD for ai_characters
+│   │   ├── StatusManagement.jsx       # CRUD for character_statuses
+│   │   ├── AssetManagement.jsx        # CRUD for character_assets
+│   │   └── SystemPromptsManagement.jsx # CRUD for system_prompts
+│   ├── components/
+│   │   └── (Ant Design-based UI components)
+│   └── services/
+│       ├── supabaseClient.js
+│       ├── characterService.js
+│       └── generationService.js       # Trigger AI generation workflows
 │
-├── utils/
-│   ├── configLoader.js       # Load prompts/templates from JSON or Supabase
-│   └── mobileStyles.js       # Shared mobile style utilities
-│
-├── config/
-│   ├── style_templates.json  # Template definitions and metadata
-│   └── transformation_prompts.json  # Transformation type prompts
-│
-├── components/
-│   ├── LiquidGlass.jsx       # Glass-morphism effect component
-│   └── MobileFrameWrapper.jsx  # Desktop mobile frame display (dev only)
-│
-├── App.jsx                   # Root component with routing
-├── main.jsx                  # React entry point
-└── index.css                 # Global styles with iOS optimizations
-
-supabase/
-├── config.toml              # Local dev configuration
+supabase/ (Shared backend)
 ├── migrations/
-│   ├── 20251106011710_create_videos_bucket.sql  # Videos storage bucket
-│   ├── 20251106091000_update_identity_photos_allow_videos.sql
-│   └── (initial schema)
+│   ├── 20251105214351_initial_schema.sql
+│   ├── 20251112_character_status_system.sql
+│   ├── 20251118000000_create_onboarding_system.sql         # Onboarding tables & RLS
+│   ├── 20251118120000_refactor_onboarding_architecture.sql # Onboarding optimization
+│   └── (storage bucket configs)
 └── functions/
-    ├── transform-image/     # Single image transformation edge function
-    └── batch-transform/     # Batch transformation edge function
-
-public/
-├── videos/                  # Video assets (landing-background.mp4)
-├── fonts/                   # Custom fonts
-├── admin.html              # Standalone admin panel
-└── manifest.json           # PWA manifest
+    ├── transform-image/           # LookGen: FAL image transformation
+    ├── batch-transform/           # LookGen: Batch transformations
+    ├── generate-text-content/     # Character: Gemini prompt generation
+    ├── generate-starting-image/   # Character: FAL SeeDrawm image gen
+    ├── generate-single-video/     # Character: FAL SeeDance video gen
+    └── batch-image-generation/    # Character: Batch processing
 ```
 
 ## Data Flow
 
+### LookGen: Photo Transformation Flow
 ```
-User Input (Photo)
+User uploads photo → Zustand Store → Supabase Storage (photos bucket)
   ↓
-Zustand Store (appStore.js)
+Supabase Edge Function (transform-image) → FAL API
   ↓
-Supabase Storage (photos bucket)
-  ↓
-Supabase Edge Function (transform-image)
-  ↓
-FAL API (image transformation)
-  ↓
-Result saved to Supabase
+Transformed image saved to Supabase Storage
   ↓
 Display in UI / Store in Zustand
   ↓
-Create Post → Supabase Database
+Create Post → Supabase Database (posts table)
   ↓
-Feed shows posts
+Feed displays posts
 ```
 
-## Global State Management (appStore.js)
+### Character System: 3-Step Generation Workflow
+```
+Admin creates Status (draft) → character_statuses table
+  ↓
+Step 1: Generate Text Content
+  Supabase Edge Function (generate-text-content) → Google Gemini API
+  Returns: video_scenes[], overlays_content{}, suggestions_list[]
+  ↓
+Step 2: Generate Starting Image
+  Supabase Edge Function (generate-starting-image) → FAL SeeDrawm API
+  Input: selected assets + mood
+  Returns: starting_image_url
+  ↓
+Step 3: Generate Video Clips
+  Supabase Edge Function (generate-single-video) → FAL SeeDance API
+  Input: starting_image_url + scene prompts (from Step 1)
+  Returns: videos_playlist[] (array of video URLs)
+  ↓
+Status marked as 'completed'
+  ↓
+Character App displays: VideoPlayer with smooth transitions
+```
 
-Key store properties:
+### Onboarding System: Modular Flow Architecture
+```
+User visits Character App root (/) → onboardingService.getActiveConfig()
+  ↓
+Load onboarding_configs (active config) from Supabase
+  ↓
+OnboardingEngine reads config → routes to appropriate Step component
+  ↓
+Flow executes based on config:
+  Step 1 (Splash): Welcome screen with visual theme
+  Step 2 (Guidance): Assistant introduction (optional, config-driven)
+  Step 3 (Identity): Name/photo/voice input (optional)
+  Step 4 (Choice): "Keep self" vs "Become other" (optional)
+  Step 5 (Creation): AI identity generation (optional)
+  Step 6 (Finalizing): Confirmation & loading (optional)
+  Step 7 (Entry): Final screen before entering main app
+  ↓
+Each step completion → onboarding_sessions table (progress tracking)
+  ↓
+Final step → redirect to /character/{target_character_id}
+```
+
+**Key Feature**: Steps 2-6 are optional and config-driven. Admin can create flows like:
+- **Minimal**: Step 1 → Step 7 (immediate entry)
+- **Philosophy**: Step 1 (epic splash) → Step 7
+- **Tech**: Step 1 → Step 2 (assistant) → Step 3 (identity scan) → Step 4 (choice) → Step 7
+- **Cyberpunk**: Step 1 → Step 4 → Step 5 (AI creation) → Step 6 (loading) → Step 7
+
+## State Management
+
+### LookGen: Zustand Store (appStore.js)
+
+Global state with localStorage persistence:
 - `identityPhoto` - User's uploaded photo
-- `selectedTransformation` - Chosen transformation type (e.g., 'better_looking')
+- `selectedTransformation` - Transformation type (e.g., 'better_looking')
 - `selectedTemplate` - Style template ID ('T1'-'T5')
-- `generatedPhotos` - Array of AI-transformed results
+- `generatedPhotos` - AI-transformed results array
 - `posts` - Social feed posts
 - `currentUser` - User profile data
-- `cacheMode` - Demo cache toggle (true = use cached results)
-- `transformationPrompts` - Loaded from Supabase/JSON fallback
-- `styleTemplates` - Loaded from Supabase/JSON fallback
+- `cacheMode` - Demo cache toggle (uses cached images instead of FAL API)
+- `transformationPrompts` - Config from Supabase/JSON fallback
+- `styleTemplates` - Templates from Supabase/JSON fallback
 
-Store methods:
-- `loadConfigFromSupabase()` - Loads config from Supabase (fallback to JSON)
-- `refreshConfig()` - Refresh config when admin updates it
-- `setCacheMode()` - Toggle demo cache mode
-- `toggleMobileFrame()` - Toggle desktop mobile frame (dev only)
+Key methods:
+- `loadConfigFromSupabase()` - Loads config with JSON fallback
+- `refreshConfig()` - Refresh after admin updates
+- `setCacheMode()` - Toggle demo cache
 
-## Configuration System
+### Character App: React State Only
 
-### Hierarchical Loading
-1. Supabase config tables (prompt_configs)
-2. Fallback to local JSON files (src/config/)
-3. Error handling with console logs
+No global state management library. Uses React hooks:
+- `useState` for local component state
+- `useEffect` for data fetching
+- Props drilling for component communication
+- All data fetched from Supabase via `characterService.js`
 
-### Config Files
-- `transformation_prompts.json`: Defines the 5 transformation types with AI prompts
-- `style_templates.json`: Defines the 5-10 style templates with metadata
+### Admin Panel: React State + Ant Design
 
-### Admin Interface
-- Path: `/admin`
-- Allows editing transformations and templates
-- Syncs to Supabase (if enabled)
+- Ant Design Form state management
+- React hooks for CRUD operations
+- No global state library needed
 
-## Cache Mode System (Demo Feature)
+## Database Schema (Supabase)
 
-- Controlled by global `cacheMode` setting in appStore
+### LookGen Tables
+- `identity_photos` - User-uploaded photos
+- `posts` - Social feed posts
+- `prompt_configs` - Transformation prompts configuration
+- `app_settings` - Global settings (cache mode)
+- `cached_generations` - Pre-generated images for demo mode
+
+### Character System Tables
+- `ai_characters` - Character profiles (name, avatar, description)
+- `character_statuses` - Character states with mood/health/actions
+  - Tracks generation workflow: step (0-3), status (draft/generating/completed/failed)
+  - Stores AI-generated content: video_scenes[], overlays_content{}, suggestions_list[]
+  - Stores media URLs: starting_image_url, videos_playlist[]
+- `character_assets` - Asset library (服饰/地点/道具/其他)
+- `system_prompts` - AI prompts for text/image/video generation
+- `onboarding_configs` - Onboarding flow configurations (JSONB-based modular steps)
+  - `flow_type`: 'fixed_character' | 'character_selection' | 'user_creation'
+  - `step_1_splash` to `step_7_entry`: JSONB configs (visual, content, interaction)
+  - `global_styles`: Theme customization (fonts, colors, animations)
+- `onboarding_sessions` - User onboarding progress tracking
+  - Stores: current_step, user_data (name, photo, choices), session timestamps
+
+### Storage Buckets
+- `photos` - User identity photos (LookGen)
+- `videos` - Generated video clips (Character system)
+- `cached_generations` - Pre-cached images (demo mode)
+- `onboarding-resources` - Onboarding media (background videos, images, audio)
+
+## Configuration System (LookGen Only)
+
+**Hierarchical loading:**
+1. Try Supabase `prompt_configs` table
+2. Fallback to local JSON files (`src/config/*.json`)
+3. Console logs errors if both fail
+
+**Config files:**
+- `transformation_prompts.json` - 5 transformation types with AI prompts
+- `style_templates.json` - Style templates with metadata
+
+**Cache Mode (Demo Feature):**
+- Toggle in `app_settings` table, synced to appStore
+- When enabled: Uses `cached_generations` table instead of FAL API
 - Real-time sync via Supabase subscription (settingsService.js)
-- When enabled: Uses pre-generated cached images instead of calling FAL API
-- Useful for demos and testing without API costs
-
-## Video Resources
-
-The landing page uses a background video:
-- File: `public/videos/landing-background.mp4`
-- Size: 31MB
-- Upload to Supabase: `supabase storage cp public/videos/landing-background.mp4 gs://social-look-app/videos/landing-background.mp4 --recursive`
-- Frontend reference: `src/pages/Landing.jsx` line 42 uses `/videos/landing-background.mp4`
 
 ## Important Code Patterns
 
-### Using Zustand Store
+### LookGen: Using Zustand Store
 ```javascript
 import useAppStore from '../stores/appStore';
 
 const Component = () => {
   const identityPhoto = useAppStore((state) => state.identityPhoto);
   const setIdentityPhoto = useAppStore((state) => state.setIdentityPhoto);
-
   return (...);
 };
 ```
 
-### React Native Web Components (DO NOT use HTML)
+### LookGen: React Native Web Components (NOT HTML!)
 ```javascript
-// ✅ Correct
+// ✅ CORRECT for LookGen
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 const MyComponent = () => (
@@ -211,7 +382,7 @@ const MyComponent = () => (
   </View>
 );
 
-// ❌ Wrong - don't do this
+// ❌ WRONG for LookGen (but OK for Character App/Admin Panel)
 const MyComponent = () => (
   <div className="container">
     <h1>Hello</h1>
@@ -220,123 +391,250 @@ const MyComponent = () => (
 );
 ```
 
-### Platform-Specific Code
+### Character App: Smooth Video Transitions
 ```javascript
-import { Platform, StyleSheet } from 'react-native';
+// VideoPlayer.jsx pattern
+const [currentIndex, setCurrentIndex] = useState(0)
+const [fade, setFade] = useState(true)
 
-// In styles
-const styles = StyleSheet.create({
-  container: {
-    ...Platform.select({
-      web: { minHeight: '100vh' },
-      ios: { marginTop: 20 },
-      default: {},
-    }),
-  },
-});
+// Smooth fade between video clips
+useEffect(() => {
+  if (!videosPlaylist.length) return
 
-// In component logic
-if (Platform.OS === 'web') {
-  // Web-specific code
+  const timer = setInterval(() => {
+    setFade(false)
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % videosPlaylist.length)
+      setFade(true)
+    }, 500) // Fade duration
+  }, videoDuration * 1000)
+
+  return () => clearInterval(timer)
+}, [videosPlaylist])
+```
+
+### Character App: Framer Motion Overlays
+```javascript
+import { motion, AnimatePresence } from 'framer-motion'
+
+<AnimatePresence>
+  {activeOverlay === 'mood' && (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.3 }}
+    >
+      <MoodSelector />
+    </motion.div>
+  )}
+</AnimatePresence>
+```
+
+### Admin Panel: Drag-and-Drop Video Ordering
+```javascript
+import { DndContext, closestCenter } from '@dnd-kit/core'
+import { SortableContext, arrayMove } from '@dnd-kit/sortable'
+
+const handleDragEnd = (event) => {
+  const { active, old, over } = event
+  if (old !== over) {
+    setItems((items) => arrayMove(items, old, over))
+  }
 }
 ```
 
-### Mobile-First Responsive Design
-- Use flexbox for layouts
-- Minimum touch targets: 44x44px
-- Safe area support via Platform.select()
-- Test at multiple viewport sizes
+### Character App: Onboarding Engine (Config-Driven State Machine)
+```javascript
+// OnboardingEngine.jsx pattern
+import useOnboardingConfig from '../../hooks/useOnboardingConfig'
+import useStepNavigation from '../../hooks/useStepNavigation'
+
+const OnboardingEngine = () => {
+  const { config, loading, error } = useOnboardingConfig()
+  const { currentStep, goToNextStep, goToPreviousStep } = useStepNavigation(config)
+
+  // Dynamic step routing based on config
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1: return config.step_1_splash && <Step1Splash {...config.step_1_splash} />
+      case 2: return config.step_2_guidance && <Step2Guidance {...config.step_2_guidance} />
+      // ... steps 3-6 (optional)
+      case 7: return config.step_7_entry && <Step7Entry {...config.step_7_entry} />
+      default: return null
+    }
+  }
+
+  return <div className="onboarding-container">{renderStep()}</div>
+}
+```
+
+### Character App: Custom Hooks for Onboarding
+```javascript
+// useOnboardingConfig.js - Load config from Supabase
+export default function useOnboardingConfig() {
+  const [config, setConfig] = useState(null)
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      const activeConfig = await onboardingService.getActiveConfig()
+      setConfig(activeConfig)
+    }
+    loadConfig()
+  }, [])
+
+  return { config, loading, error }
+}
+
+// useStepNavigation.js - Step transition logic with skip support
+export default function useStepNavigation(config) {
+  const [currentStep, setCurrentStep] = useState(1)
+
+  const goToNextStep = () => {
+    // Skip null steps (e.g., step 2-6 if not configured)
+    let nextStep = currentStep + 1
+    while (nextStep <= 7 && !config[`step_${nextStep}_*`]) {
+      nextStep++
+    }
+    setCurrentStep(nextStep)
+  }
+
+  return { currentStep, goToNextStep, goToPreviousStep }
+}
+```
 
 ## Environment Variables
 
-Required in `.env`:
-```
-VITE_FAL_API_KEY=your_fal_api_key
+All apps share the same `.env` structure:
+```env
+VITE_FAL_API_KEY=your_fal_api_key           # FAL image/video generation
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_GEMINI_API_KEY=your_gemini_api_key     # Google Gemini for text generation (Character system)
 ```
 
-## Common Development Tasks
-
-### Adding a New Transformation Type
-1. Add entry to `src/config/transformation_prompts.json`
-2. Update AI prompt accordingly
-3. Reload app or admin panel
-4. Test on EditLook.jsx page
-
-### Adding a New Style Template
-1. Add template object to `src/config/style_templates.json`
-2. Add corresponding image to assets
-3. Update Templates.jsx if UI changes needed
-4. Test in app flow
-
-### Testing Supabase Integration
-1. `supabase start` - Start local Supabase
-2. Check migrations are applied: `supabase db show`
-3. View data: `supabase functions list`
-4. Deploy functions: `supabase functions deploy [function-name]`
-
-### Building for Production
+**Supabase Edge Functions** also need environment variables:
 ```bash
-npm run build              # Creates dist/
-npm run preview            # Test production build locally
+# In supabase/functions/.env
+FAL_API_KEY=your_fal_api_key
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-Deploy to Vercel:
-- Set environment variables in Vercel dashboard
-- Push to GitHub - auto-deploys
-- Access admin at: `https://your-app.vercel.app/admin`
+## Deployment
+
+### Vercel (Separate Projects)
+
+Each app deploys to a separate Vercel project:
+
+**1. LookGen (Root App):**
+```bash
+# Root directory has vercel.json
+vercel --prod
+# URL: https://lookgen.vercel.app
+```
+
+**2. Character App:**
+```bash
+cd character-app
+# Has its own vercel.json
+vercel --prod
+# URL: https://character-app.vercel.app
+```
+
+**3. Admin Panel:**
+```bash
+cd admin-app
+# Has its own vercel.json
+vercel --prod
+# URL: https://admin-panel.vercel.app
+```
+
+Set environment variables in each Vercel project dashboard separately.
+
+### Supabase Edge Functions
+```bash
+# Deploy all functions
+supabase functions deploy
+
+# Or deploy specific function
+supabase functions deploy generate-single-video
+
+# View function logs
+supabase functions logs generate-single-video --tail
+```
 
 ## Debugging Tips
 
-### Console Logging
-Services use `console.log()` with prefixes:
-- `[appStore]` - State management
-- `[supabaseApi]` - Supabase calls
-- `[falApi]` - FAL API calls
-- Search these prefixes to trace data flow
+### Console Logging Prefixes
+- **LookGen:** `[appStore]`, `[supabaseApi]`, `[falApi]`
+- **Character App:** `[CharacterView]`, `[VideoPlayer]`, `[characterService]`, `[OnboardingEngine]`, `[onboardingService]`
+- **Admin Panel:** `[generationService]`, `[statusManagement]`, `[OnboardingConfigManagement]`
+- **Edge Functions:** Check Supabase dashboard logs
 
-### Config Loading Issues
-- Check console for Supabase connection errors
-- Falls back to JSON if Supabase unavailable
-- Verify JSON files exist in `src/config/`
+### Common Issues
 
-### Image Transformation Failures
-- Check FAL API key in .env
-- Verify Supabase edge functions deployed
-- Check browser console for specific errors
-- Test with valid image URL format
+**Video not playing (Character App):**
+- Check `videos_playlist` is not empty in character_statuses table
+- Verify video URLs are accessible (try opening in browser)
+- Check browser console for CORS errors
+- Ensure video files are in Supabase storage `videos` bucket
 
-### State Issues
-- Open browser DevTools → Application → LocalStorage
-- Check `appStore` keys for state persistence
+**Generation workflow stuck:**
+- Check `generation_step` and `generation_status` in character_statuses table
+- View edge function logs: `supabase functions logs <function-name> --tail`
+- Verify FAL API key is set in Supabase edge function secrets
+- Check Gemini API quota limits
+
+**LookGen state persistence issues:**
+- DevTools → Application → LocalStorage → Check `appStore` keys
+- If cache mode not working, check `app_settings` table in Supabase
 - Use React DevTools to inspect Zustand store
 
-## Testing Strategy
+**Smooth video transition not working:**
+- Ensure `videoDuration` matches actual video length (character-app/src/components/character/VideoPlayer.jsx:30)
+- Check fade animation CSS transition timing
+- Verify `videos_playlist` array has multiple videos
 
-The project uses:
-- ESLint for code quality
-- Manual testing in dev server
-- Cache mode for testing without API calls
+**Onboarding not loading:**
+- Check if there's an active config: `SELECT * FROM onboarding_configs WHERE is_active = true`
+- Verify `target_character_id` exists in `ai_characters` table
+- Check browser console for JSONB parsing errors
+- Ensure at least `step_1_splash` and one other step are configured
 
-## Mobile Optimization Considerations
+**Onboarding stuck on a step:**
+- Check `onboarding_sessions` table for session state
+- Verify step config has valid `interaction.type` (e.g., "button", "any_click")
+- Check if visual resources (videos/images) are loading correctly
+- Review browser console for JavaScript errors in step components
 
-- iOS safe area support (notch, Home indicator)
-- 100dvh viewport height for mobile browsers
-- -webkit-overflow-scrolling for iOS momentum scrolling
-- Touch targets minimum 44x44px (iOS guideline)
-- Platform-specific font configurations
-- WebKit font smoothing for crisp text
+## Key Architecture Decisions
 
-## File Size Notes
+### Why Monorepo?
+- Shared Supabase backend across all apps
+- Reusable migration scripts and edge functions
+- Consistent environment variable management
+- Independent deployment for each frontend
 
-- supabaseApi.js: ~10KB (core transformation logic)
-- Landing video: 31MB (lazy-loaded)
+### Why React Native Web for LookGen Only?
+- LookGen designed for future iOS/Android native apps
+- Character App and Admin Panel are web-only, no need for cross-platform overhead
 
-## Notes for Future Development
+### Why No Global State in Character App?
+- Simple data flow (fetch from Supabase → display)
+- No complex client-side state mutations
+- Character data is read-only in frontend (writes happen via Admin Panel)
 
-- Replace mock API calls in api.js if traditional REST layer needed
-- Implement persistent user authentication (currently anonymous)
-- Add image caching strategy for mobile
-- Consider offline support with service workers (PWA)
-- Optimize video delivery (current 31MB landing video should be compressed)
+### Character System: 3-Step Generation
+- **Step 1 (Text):** Gemini generates scene descriptions, overlay text, suggestions
+- **Step 2 (Image):** FAL SeeDrawm generates starting image from assets + mood
+- **Step 3 (Video):** FAL SeeDance converts image + scene prompts → video clips
+- Each step saves results to `character_statuses` table before proceeding
+- Allows resuming if any step fails
+
+### Onboarding System: JSONB-Based Configuration
+- **Database-driven**: All step configs stored in `onboarding_configs` table as JSONB
+- **Modular**: Steps 2-6 are optional; admin enables/disables via null/non-null JSONB
+- **Multi-theme support**: Single codebase serves different visual themes (Philosophy, Tech, Cyberpunk)
+- **No hardcoded flows**: Step routing determined by config presence, not code conditionals
+- **Session tracking**: `onboarding_sessions` allows resuming incomplete flows
+- Inspired by "Second Life", "Pikabot", "Naomi" reference flows (see character-app/Onboarding SPEC.md)

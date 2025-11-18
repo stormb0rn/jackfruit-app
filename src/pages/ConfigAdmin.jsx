@@ -1,181 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal, Image, Switch, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Modal,
+  Image,
+  Alert,
+  Platform
+} from 'react-native';
 import { supabase } from '../services/supabaseClient';
-import cacheService from '../services/cacheService';
-import settingsService from '../services/settingsService';
 import configService from '../services/configService';
+import settingsService from '../services/settingsService';
+import cacheService from '../services/cacheService';
 import useAppStore from '../stores/appStore';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-
-// Get template image URL from relative path
-const getTemplateImageUrl = (imagePath) => {
-  if (!imagePath) return null;
-
-  const { data } = supabase.storage
-    .from('identity-photos')
-    .getPublicUrl(imagePath);
-
-  return data.publicUrl;
-};
-
-// Sortable Item Component for drag-and-drop
-function SortableItemCard({ id, item, type, onDelete, onEdit, onToggle, onRegenerate, onRestore, isLoading, cachedResult, isDeleted }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const isTemplate = type === 'templates';
-
-  return (
-    <View ref={setNodeRef} style={[styles.itemCard, isTemplate && styles.itemCardTemplate, isDeleted && styles.itemCardDeleted, style]}>
-      {/* Drag handle - hidden for deleted items */}
-      {!isDeleted && (
-        <View {...listeners} {...attributes} style={styles.dragHandle}>
-          <Text style={styles.dragHandleIcon}>⋮⋮</Text>
-        </View>
-      )}
-
-      {item.image_path && (
-        <Image
-          source={{ uri: getTemplateImageUrl(item.image_path) }}
-          style={isTemplate ? styles.templateImageVertical : styles.templateImage}
-          resizeMode="cover"
-        />
-      )}
-
-      <View style={styles.itemHeader}>
-        <Text style={styles.itemName}>{item.name}</Text>
-        <View style={styles.itemActions}>
-          {isDeleted ? (
-            <TouchableOpacity
-              onPress={() => onRestore(id)}
-              style={[styles.textButton, styles.restoreButton]}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.textButtonText}>Restore</Text>
-            </TouchableOpacity>
-          ) : (
-            <>
-              <Switch
-                value={item.enabled}
-                onValueChange={() => onToggle(type, id)}
-                trackColor={{ false: '#d2d2d7', true: '#34c759' }}
-                thumbColor="#fff"
-                style={styles.switch}
-              />
-              <TouchableOpacity
-                onPress={() => onRegenerate(type, id, item)}
-                style={styles.textButton}
-                activeOpacity={0.7}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.textButtonText}>Regenerate</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onEdit(type, id)}
-                style={styles.textButton}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.textButtonText}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onDelete(type, id)}
-                style={[styles.textButton, styles.deleteButton]}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.textButtonText}>Delete</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-
-      <Text style={styles.itemPrompt}>
-        {isTemplate && item.prompts ? item.prompts[0] : item.prompts?.[0] || ''}
-      </Text>
-
-      {!isDeleted && (
-        <Text style={[styles.enabledStatus, item.enabled ? styles.enabled : styles.disabled]}>
-          {item.enabled ? '● Enabled' : '○ Disabled'}
-        </Text>
-      )}
-
-      {isDeleted && (
-        <Text style={styles.deletedBadge}>Deleted</Text>
-      )}
-
-      {cachedResult && !isDeleted && (
-        <View style={styles.testResultInline}>
-          <Text style={styles.testResultLabel}>Cached Result:</Text>
-
-          {isTemplate && cachedResult.generatedUrls && cachedResult.generatedUrls.length > 1 ? (
-            // Templates: display multiple images horizontally
-            <View style={styles.multiImagesContainer}>
-              {cachedResult.generatedUrls.map((url, index) => (
-                <View key={index} style={styles.imageWrapper}>
-                  <Image
-                    source={{ uri: url }}
-                    style={styles.resultImageMultiple}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.imageIndexLabel}>#{index + 1}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            // Edit Look or single image: display single image
-            <Image
-              source={{ uri: cachedResult.generatedUrl || cachedResult.generatedUrls?.[0] }}
-              style={isTemplate ? styles.resultImageInlineVertical : styles.resultImageInline}
-              resizeMode="contain"
-            />
-          )}
-
-          <Text style={styles.cacheTimestamp}>
-            Updated: {new Date(cachedResult.updatedAt).toLocaleString()}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
 
 function ConfigAdmin() {
+  console.log('[ConfigAdmin] Component rendering...');
+
   const [config, setConfig] = useState({ looking: {}, templates: {} });
-  const [activeTab, setActiveTab] = useState('looking'); // 'looking', 'templates'
+  const [activeTab, setActiveTab] = useState('looking');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Modal states
   const [modalVisible, setModalVisible] = useState(false);
-  const [currentType, setCurrentType] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [currentType, setCurrentType] = useState('');
   const [formData, setFormData] = useState({
     id: '',
     name: '',
@@ -184,134 +38,55 @@ function ConfigAdmin() {
     enabled: true
   });
 
-  // Global test images state
+  // Test images states
   const [testImages, setTestImages] = useState([]);
   const [selectedTestImageIndex, setSelectedTestImageIndex] = useState(0);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  // Cache mode from store
-  const cacheMode = useAppStore((state) => state.cacheMode);
-  const setCacheMode = useAppStore((state) => state.setCacheMode);
-  const selectedTestImageId = useAppStore((state) => state.selectedTestImageId);
-  const setSelectedTestImageId = useAppStore((state) => state.setSelectedTestImageId);
-  const refreshConfig = useAppStore((state) => state.refreshConfig);
-
-  // Batch generation state
+  // Batch generation states
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, item: null });
 
-  // Cached results for display
-  const [cachedResults, setCachedResults] = useState({});
+  // Regeneration states
+  const [regeneratingItems, setRegeneratingItems] = useState({});
 
-  // Selected Edit Look for template testing
-  const [selectedEditLookId, setSelectedEditLookId] = useState(null);
-  const [selectedEditLookUrl, setSelectedEditLookUrl] = useState(null);
-
-  // Template image upload state
-  const [isUploadingTemplateImage, setIsUploadingTemplateImage] = useState(false);
-  const [uploadedImagePreview, setUploadedImagePreview] = useState(null);
-
-  // Test results - keyed by item id
-  const [testingInProgress, setTestingInProgress] = useState({});
-
-  // Drag-and-drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const cacheMode = useAppStore((state) => state.cacheMode);
+  const setCacheMode = useAppStore((state) => state.setCacheMode);
+  const refreshConfig = useAppStore((state) => state.refreshConfig);
+  const selectedTestImageId = useAppStore((state) => state.selectedTestImageId);
+  const setSelectedTestImageId = useAppStore((state) => state.setSelectedTestImageId);
 
   useEffect(() => {
+    console.log('[ConfigAdmin] useEffect running...');
     loadConfig();
     loadExistingTestImages();
   }, []);
 
-  useEffect(() => {
-    // Load cached results when test image selection changes
-    if (testImages.length > 0 && testImages[selectedTestImageIndex]) {
-      const currentImage = testImages[selectedTestImageIndex];
-      loadCachedResults(currentImage.id);
-      setSelectedTestImageId(currentImage.id);
-    }
-  }, [selectedTestImageIndex, testImages]);
-
   const loadConfig = async () => {
     try {
-      // Load from Supabase using new API
+      console.log('[ConfigAdmin] Loading config...');
+      setLoading(true);
+      setError(null);
+
       const [lookingData, templatesData] = await Promise.all([
         configService.loadItems('looking'),
         configService.loadItems('templates')
       ]);
 
-      setConfig({
-        looking: lookingData,
-        templates: templatesData
+      console.log('[ConfigAdmin] Config loaded:', {
+        looking: Object.keys(lookingData || {}).length,
+        templates: Object.keys(templatesData || {}).length
       });
 
-      console.log('✅ Configuration loaded from Supabase');
-    } catch (error) {
-      console.error('Failed to load config from Supabase:', error);
-    }
-  };
-
-  const loadCachedResults = async (testImageId) => {
-    try {
-      const results = await cacheService.getCachedResults(testImageId);
-      setCachedResults(results);
-
-      // Auto-select the first Edit Look for template testing
-      const lookingResults = results.looking || {};
-      const lookingIds = Object.keys(lookingResults);
-      if (lookingIds.length > 0) {
-        const firstEditLookId = lookingIds[0];
-        const firstEditLookData = lookingResults[firstEditLookId];
-        setSelectedEditLookId(firstEditLookId);
-        setSelectedEditLookUrl(firstEditLookData.generatedUrl);
-        console.log('📌 Auto-selected Edit Look for templates:', firstEditLookId);
-      } else {
-        setSelectedEditLookId(null);
-        setSelectedEditLookUrl(null);
-      }
-
-      // Check if we have any cached results
-      const hasCache = (results.looking && Object.keys(results.looking).length > 0) ||
-                       (results.templates && Object.keys(results.templates).length > 0);
-
-      if (!hasCache) {
-        console.log('ℹ️  No cached results found for test image:', testImageId);
-      } else {
-        console.log('✅ Loaded cached results:', {
-          looking: Object.keys(results.looking || {}).length,
-          templates: Object.keys(results.templates || {}).length
-        });
-      }
-    } catch (error) {
-      console.error('❌ Failed to load cached results:', error);
-
-      if (error.code === 'PGRST205' || error.message?.includes('cached_generations')) {
-        alert('⚠️ Database table not found. Please ensure the migration has been applied and the PostgREST schema cache has been refreshed.');
-      }
-
-      setCachedResults({ looking: {}, templates: {} });
-      setSelectedEditLookId(null);
-      setSelectedEditLookUrl(null);
-    }
-  };
-
-  const handleCacheModeToggle = async (enabled) => {
-    try {
-      const success = await settingsService.setGlobalCacheMode(enabled);
-
-      if (success) {
-        setCacheMode(enabled);
-        console.log('✅ Global cache mode updated:', enabled);
-      } else {
-        alert('Failed to update cache mode. Please try again.');
-      }
-    } catch (error) {
-      console.error('❌ Failed to toggle cache mode:', error);
-      alert('Failed to update cache mode. Please try again.');
+      setConfig({
+        looking: lookingData || {},
+        templates: templatesData || {}
+      });
+    } catch (err) {
+      console.error('[ConfigAdmin] Failed to load config:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -362,6 +137,7 @@ function ConfigAdmin() {
 
       if (loadedImages.length > 0) {
         setSelectedTestImageIndex(0);
+        setSelectedTestImageId(loadedImages[0].id);
         console.log(`📌 Auto-selected most recent image: ${loadedImages[0].fileName}`);
       }
     } catch (error) {
@@ -369,201 +145,21 @@ function ConfigAdmin() {
     }
   };
 
-  const generateNextStyleId = (type) => {
-    const existingIds = Object.keys(config[type] || {});
+  const handleCacheModeToggle = async () => {
+    try {
+      const newMode = !cacheMode;
+      const success = await settingsService.setGlobalCacheMode(newMode);
 
-    if (type === 'looking') {
-      const numbers = existingIds
-        .filter(id => id.startsWith('style_id_'))
-        .map(id => {
-          const match = id.match(/style_id_(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
-        })
-        .filter(num => !isNaN(num));
-
-      const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
-      const nextNumber = maxNumber + 1;
-
-      return `style_id_${String(nextNumber).padStart(3, '0')}`;
+      if (success) {
+        setCacheMode(newMode);
+        console.log('✅ Global cache mode updated:', newMode);
+      } else {
+        Alert.alert('错误', '更新缓存模式失败，请重试');
+      }
+    } catch (err) {
+      console.error('❌ Failed to toggle cache mode:', err);
+      Alert.alert('错误', '更新缓存模式失败');
     }
-
-    if (type === 'templates') {
-      const numbers = existingIds
-        .filter(id => id.startsWith('template_id_'))
-        .map(id => {
-          const match = id.match(/template_id_(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
-        })
-        .filter(num => !isNaN(num));
-
-      const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
-      const nextNumber = maxNumber + 1;
-
-      return `template_id_${String(nextNumber).padStart(3, '0')}`;
-    }
-
-    return '';
-  };
-
-  const openModal = (type, id = null) => {
-    setCurrentType(type);
-    setEditingId(id);
-
-    if (id) {
-      const item = config[type][id];
-      setFormData({
-        id: item.id,
-        name: item.name,
-        prompts: item.prompts || ['', '', ''],
-        image_path: item.image_path || '',
-        enabled: item.enabled !== undefined ? item.enabled : true
-      });
-    } else {
-      const autoId = generateNextStyleId(type);
-
-      setFormData({
-        id: autoId,
-        name: '',
-        prompts: ['', '', ''],
-        image_path: '',
-        enabled: true
-      });
-    }
-
-    setUploadedImagePreview(null);
-    setModalVisible(true);
-  };
-
-  const closeModal = () => {
-    setModalVisible(false);
-    setFormData({
-      id: '',
-      name: '',
-      prompts: ['', '', ''],
-      image_path: '',
-      enabled: true
-    });
-    setEditingId(null);
-    setUploadedImagePreview(null);
-  };
-
-  const saveItem = async () => {
-    // Prepare prompts array
-    const cleanedPrompts = currentType === 'templates'
-      ? formData.prompts.filter(p => p.trim() !== '')
-      : [formData.prompts[0]]; // Edit Look only uses first prompt
-
-    const itemData = {
-      name: formData.name,
-      prompts: cleanedPrompts,
-      image_path: currentType === 'templates' ? formData.image_path : null,
-      enabled: formData.enabled,
-      display_order: config[currentType][formData.id]?.display_order || Object.keys(config[currentType]).length
-    };
-
-    // Save to Supabase
-    const success = await configService.saveItem(currentType, formData.id, itemData);
-
-    if (!success) {
-      alert('Warning: Failed to save configuration to database. Please try again.');
-      return;
-    }
-
-    // Refresh local config
-    await loadConfig();
-    await refreshConfig();
-
-    closeModal();
-  };
-
-  const deleteItem = async (type, id) => {
-    const confirmed = window.confirm('Confirm Delete\n\nAre you sure you want to delete this item?');
-
-    if (!confirmed) return;
-
-    const success = await configService.deleteItem(id);
-
-    if (!success) {
-      alert('Failed to delete item. Please try again.');
-      return;
-    }
-
-    // Refresh local config
-    await loadConfig();
-    await refreshConfig();
-  };
-
-  const restoreItem = async (id) => {
-    const success = await configService.restoreItem(id);
-
-    if (!success) {
-      alert('Failed to restore item. Please try again.');
-      return;
-    }
-
-    // Refresh configs
-    await loadConfig();
-    await loadDeletedItems();
-    await refreshConfig();
-  };
-
-  const toggleEnabled = async (type, id) => {
-    const item = config[type][id];
-    const updatedItem = {
-      ...item,
-      enabled: !item.enabled
-    };
-
-    const success = await configService.saveItem(type, id, updatedItem);
-
-    if (!success) {
-      alert('Failed to toggle enabled status. Please try again.');
-      return;
-    }
-
-    // Refresh local config
-    await loadConfig();
-    await refreshConfig();
-  };
-
-  const handleDragEnd = async (event, type) => {
-    const { active, over } = event;
-
-    if (!over || active.id === over.id) {
-      return;
-    }
-
-    const items = Object.entries(config[type]);
-    const sortedItems = items.sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0));
-
-    const oldIndex = sortedItems.findIndex(([key]) => key === active.id);
-    const newIndex = sortedItems.findIndex(([key]) => key === over.id);
-
-    if (oldIndex === -1 || newIndex === -1) {
-      return;
-    }
-
-    const reorderedItems = arrayMove(sortedItems, oldIndex, newIndex);
-
-    // Update display_order for all items
-    const itemsWithNewOrder = reorderedItems.map(([key, value], index) => ({
-      id: key,
-      ...value,
-      display_order: index
-    }));
-
-    // Save order to Supabase
-    const success = await configService.updateOrder(type, itemsWithNewOrder);
-
-    if (!success) {
-      alert('Failed to update order. Please try again.');
-      return;
-    }
-
-    // Refresh local config
-    await loadConfig();
-    await refreshConfig();
-    console.log(`✅ Updated order for ${type}`);
   };
 
   const handleImagePick = async () => {
@@ -584,65 +180,27 @@ function ConfigAdmin() {
               file,
               url: event.target.result,
               publicUrl,
-              filePath
+              filePath,
+              fileName: filePath.split('/').pop()
             };
 
-            setTestImages([...testImages, newImage]);
-            setSelectedTestImageIndex(testImages.length);
+            setTestImages([newImage, ...testImages]);
+            setSelectedTestImageIndex(0);
+            setSelectedTestImageId(testImageId);
 
+            // Auto batch generate
             await handleBatchGenerate(newImage);
           };
           reader.readAsDataURL(file);
         } catch (error) {
           console.error('Upload error:', error);
-          alert(`Upload Failed\n\n${error.message}`);
+          Alert.alert('上传失败', error.message);
         } finally {
           setIsUploadingImage(false);
         }
       }
     };
     input.click();
-  };
-
-  const handleBatchGenerate = async (testImage) => {
-    setIsBatchGenerating(true);
-    setBatchProgress({ current: 0, total: 0, item: null });
-
-    try {
-      const results = await cacheService.batchGenerateCache(
-        testImage.publicUrl,
-        testImage.id,
-        config,
-        (current, total, item) => {
-          setBatchProgress({ current, total, item });
-        }
-      );
-
-      const successCount = results.success.length;
-      const failedCount = results.failed.length;
-
-      console.log('✅ Batch generation complete:', { successCount, failedCount });
-
-      if (successCount > 0 || failedCount === 0) {
-        alert(`Batch Generation Complete\n\n✅ Successfully generated ${successCount} out of ${results.total} prompts.${failedCount > 0 ? `\n⚠️ Failed: ${failedCount}` : ''}`);
-      } else {
-        const errorMsg = results.failed[0]?.error || 'Unknown error';
-        alert(`Batch Generation Failed\n\n❌ All generations failed.\nError: ${errorMsg}\n\nPlease check console for details.`);
-      }
-
-      await loadCachedResults(testImage.id);
-    } catch (error) {
-      console.error('❌ Batch generation error:', error);
-
-      if (error.code === 'PGRST205' || error.message?.includes('cached_generations')) {
-        alert('Database Error\n\n⚠️ The cached_generations table was not found. Please ensure the migration has been applied and wait a moment for the schema cache to refresh, then try again.');
-      } else {
-        alert(`Batch Generation Failed\n\n${error.message}`);
-      }
-    } finally {
-      setIsBatchGenerating(false);
-      setBatchProgress({ current: 0, total: 0, item: null });
-    }
   };
 
   const uploadImageToSupabase = async (file) => {
@@ -671,15 +229,69 @@ function ConfigAdmin() {
     }
   };
 
+  const handleBatchGenerate = async (testImage) => {
+    setIsBatchGenerating(true);
+    setBatchProgress({ current: 0, total: 0, item: null });
+
+    try {
+      const results = await cacheService.batchGenerateCache(
+        testImage.publicUrl,
+        testImage.id,
+        config,
+        (current, total, item) => {
+          setBatchProgress({ current, total, item });
+        }
+      );
+
+      const successCount = results.success.length;
+      const failedCount = results.failed.length;
+
+      console.log('✅ Batch generation complete:', { successCount, failedCount });
+
+      if (successCount > 0 || failedCount === 0) {
+        Alert.alert(
+          '批量生成完成',
+          `✅ 成功生成 ${successCount} / ${results.total} 个提示词。${failedCount > 0 ? `\n⚠️ 失败: ${failedCount}` : ''}`
+        );
+      } else {
+        const errorMsg = results.failed[0]?.error || 'Unknown error';
+        Alert.alert(
+          '批量生成失败',
+          `❌ 所有生成都失败了。\n错误: ${errorMsg}\n\n请查看控制台了解详情。`
+        );
+      }
+    } catch (error) {
+      console.error('❌ Batch generation error:', error);
+      Alert.alert('批量生成失败', error.message);
+    } finally {
+      setIsBatchGenerating(false);
+      setBatchProgress({ current: 0, total: 0, item: null });
+    }
+  };
+
   const removeTestImage = async (index) => {
     const image = testImages[index];
 
-    const confirmed = window.confirm(
-      'Confirm Delete\n\nThis will also delete all cached generations for this image. Continue?'
-    );
+    if (Platform.OS === 'web') {
+      if (!window.confirm('确认删除\n\n这也将删除此图片的所有缓存生成。是否继续？')) return;
+    } else {
+      Alert.alert(
+        '确认删除',
+        '这也将删除此图片的所有缓存生成。是否继续？',
+        [
+          { text: '取消', style: 'cancel' },
+          { text: '删除', style: 'destructive', onPress: async () => {
+            await performRemoveTestImage(image, index);
+          }}
+        ]
+      );
+      return;
+    }
 
-    if (!confirmed) return;
+    await performRemoveTestImage(image, index);
+  };
 
+  const performRemoveTestImage = async (image, index) => {
     try {
       console.log('🗑️ Deleting test image:', {
         fileName: image.fileName,
@@ -687,29 +299,13 @@ function ConfigAdmin() {
         id: image.id
       });
 
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('identity-photos')
         .remove([image.filePath]);
 
-      console.log('Storage delete response:', { data, error });
-
       if (error) {
-        console.error('❌ Storage delete error:', error);
         throw new Error(`Storage deletion failed: ${error.message}`);
       }
-
-      const { data: files, error: listError } = await supabase.storage
-        .from('identity-photos')
-        .list('anonymous/test-images');
-
-      if (!listError) {
-        const stillExists = files.some(f => f.name === image.fileName);
-        if (stillExists) {
-          throw new Error('File still exists after deletion attempt');
-        }
-      }
-
-      console.log('✅ Deleted from storage and verified');
 
       try {
         await cacheService.deleteCacheForTestImage(image.id);
@@ -725,15 +321,15 @@ function ConfigAdmin() {
         setSelectedTestImageIndex(Math.max(0, newImages.length - 1));
       }
 
-      if (selectedTestImageIndex === index) {
-        setCachedResults({ looking: {}, templates: {} });
+      if (newImages.length > 0) {
+        setSelectedTestImageId(newImages[selectedTestImageIndex === index ? 0 : selectedTestImageIndex].id);
       }
 
       console.log('✅ Test image removed successfully');
-      alert('Test image deleted successfully!');
+      Alert.alert('成功', '测试图片删除成功！');
     } catch (error) {
       console.error('❌ Remove error:', error);
-      alert(`Remove Failed\n\n${error.message}\n\nPlease check the console for details.`);
+      Alert.alert('删除失败', error.message);
     }
   };
 
@@ -741,330 +337,439 @@ function ConfigAdmin() {
     const itemKey = `${type}-${id}`;
 
     if (!testImages.length || selectedTestImageIndex >= testImages.length) {
-      alert('Error\n\nPlease upload a test image first');
+      Alert.alert('错误', '请先上传测试图片');
       return;
     }
 
     const selectedImage = testImages[selectedTestImageIndex];
 
-    setTestingInProgress(prev => ({ ...prev, [itemKey]: true }));
+    setRegeneratingItems(prev => ({ ...prev, [itemKey]: true }));
 
     try {
-      if (type === 'templates') {
-        // Templates: use all 3 prompts
-        if (!selectedEditLookUrl) {
-          alert('Error\n\nPlease generate Edit Look cache first or select an Edit Look');
-          setTestingInProgress(prev => ({ ...prev, [itemKey]: false }));
-          return;
-        }
+      const promptText = item.prompts?.[0] || '';
 
-        // Filter out empty prompts
-        const validPrompts = (item.prompts || []).filter(p => p && p.trim() !== '');
+      await cacheService.regeneratePrompt(
+        selectedImage.publicUrl,
+        selectedImage.id,
+        type,
+        id,
+        promptText
+      );
 
-        if (validPrompts.length === 0) {
-          alert('Error\n\nPlease fill in at least one prompt');
-          setTestingInProgress(prev => ({ ...prev, [itemKey]: false }));
-          return;
-        }
-
-        console.log(`📸 Regenerating ${validPrompts.length} template image(s) using Edit Look image:`, {
-          editLookUrl: selectedEditLookUrl,
-          editLookId: selectedEditLookId,
-          promptCount: validPrompts.length
-        });
-
-        // Call with array of prompts - will generate image for each
-        await cacheService.regeneratePromptWithEditLook(
-          selectedEditLookUrl,
-          selectedImage.id,
-          id,
-          validPrompts  // Pass full array of prompts
-        );
-
-        await loadCachedResults(selectedImage.id);
-
-        alert(`Success\n\n${validPrompts.length} template image(s) generated successfully!`);
-      } else {
-        // Edit Look: use single prompt
-        const promptText = item.prompts?.[0] || '';
-
-        await cacheService.regeneratePrompt(
-          selectedImage.publicUrl,
-          selectedImage.id,
-          type,
-          id,
-          promptText
-        );
-
-        await loadCachedResults(selectedImage.id);
-
-        alert('Success\n\nPrompt regenerated successfully!');
-      }
+      Alert.alert('成功', '提示词重新生成成功！');
     } catch (error) {
       console.error('Regenerate error:', error);
-      alert(`Regenerate Failed\n\n${error.message}`);
+      Alert.alert('重新生成失败', error.message);
     } finally {
-      setTestingInProgress(prev => ({ ...prev, [itemKey]: false }));
+      setRegeneratingItems(prev => ({ ...prev, [itemKey]: false }));
     }
   };
 
-  const handleEditLookSelection = (editLookId) => {
-    setSelectedEditLookId(editLookId);
-    const cachedLooking = cachedResults.looking || {};
-    if (cachedLooking[editLookId]) {
-      setSelectedEditLookUrl(cachedLooking[editLookId].generatedUrl);
-      console.log('✅ Selected Edit Look for templates:', editLookId);
+  const generateNextStyleId = (type) => {
+    const existingIds = Object.keys(config[type] || {});
+
+    if (type === 'looking') {
+      const numbers = existingIds
+        .filter(id => id.startsWith('style_id_'))
+        .map(id => {
+          const match = id.match(/style_id_(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(num => !isNaN(num));
+
+      const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
+      return `style_id_${String(maxNumber + 1).padStart(3, '0')}`;
     }
+
+    if (type === 'templates') {
+      const numbers = existingIds
+        .filter(id => id.startsWith('template_id_'))
+        .map(id => {
+          const match = id.match(/template_id_(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(num => !isNaN(num));
+
+      const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
+      return `template_id_${String(maxNumber + 1).padStart(3, '0')}`;
+    }
+
+    return '';
   };
 
-  const handleTemplateImageUpload = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/jpeg,image/png,image/webp';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+  const openModal = (type, id = null) => {
+    setCurrentType(type);
+    setEditingId(id);
 
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File too large. Maximum size is 5MB.');
-        return;
-      }
+    if (id) {
+      const item = config[type][id];
+      setFormData({
+        id: item.id,
+        name: item.name,
+        prompts: item.prompts || ['', '', ''],
+        image_path: item.image_path || '',
+        enabled: item.enabled !== undefined ? item.enabled : true
+      });
+    } else {
+      const autoId = generateNextStyleId(type);
+      setFormData({
+        id: autoId,
+        name: '',
+        prompts: ['', '', ''],
+        image_path: '',
+        enabled: true
+      });
+    }
 
-      setIsUploadingTemplateImage(true);
+    setModalVisible(true);
+  };
 
-      try {
-        const fileExt = file.name.split('.').pop().toLowerCase();
-        const baseName = file.name
-          .replace(/\.[^/.]+$/, '')
-          .toLowerCase()
-          .replace(/\s+/g, '-')
-          .replace(/[^a-z0-9-]/g, '');
+  const closeModal = () => {
+    setModalVisible(false);
+    setFormData({
+      id: '',
+      name: '',
+      prompts: ['', '', ''],
+      image_path: '',
+      enabled: true
+    });
+    setEditingId(null);
+  };
 
-        const fileName = `${baseName}.${fileExt}`;
-        const filePath = `anonymous/style-templates/${fileName}`;
+  const saveItem = async () => {
+    if (!formData.name.trim()) {
+      Alert.alert('错误', '请输入名称');
+      return;
+    }
 
-        const { data, error } = await supabase.storage
-          .from('identity-photos')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: true
-          });
+    if (currentType === 'looking' && !formData.prompts[0].trim()) {
+      Alert.alert('错误', '请输入提示词');
+      return;
+    }
 
-        if (error) throw error;
+    if (currentType === 'templates' && !formData.prompts[0].trim()) {
+      Alert.alert('错误', '请至少填写一个提示词');
+      return;
+    }
 
-        setFormData({ ...formData, image_path: filePath });
+    const cleanedPrompts = currentType === 'templates'
+      ? formData.prompts.filter(p => p.trim() !== '')
+      : [formData.prompts[0]];
 
-        const reader = new FileReader();
-        reader.onload = (e) => setUploadedImagePreview(e.target.result);
-        reader.readAsDataURL(file);
-
-        console.log('✅ Image uploaded:', filePath);
-      } catch (error) {
-        console.error('Upload error:', error);
-        alert(`Upload failed: ${error.message}`);
-      } finally {
-        setIsUploadingTemplateImage(false);
-      }
+    const itemData = {
+      name: formData.name,
+      prompts: cleanedPrompts,
+      image_path: currentType === 'templates' ? formData.image_path : null,
+      enabled: formData.enabled,
+      display_order: config[currentType][formData.id]?.display_order || Object.keys(config[currentType]).length
     };
-    input.click();
-  };
 
-  const renderEditLookSelector = () => {
-    const cachedLooking = cachedResults.looking || {};
-    const lookingItems = Object.entries(config.looking || {});
+    const success = await configService.saveItem(currentType, formData.id, itemData);
 
-    if (lookingItems.length === 0) {
-      return null;
+    if (!success) {
+      Alert.alert('错误', '保存配置失败，请重试');
+      return;
     }
 
+    await loadConfig();
+    await refreshConfig();
+    closeModal();
+  };
+
+  const deleteItem = async (type, id) => {
+    if (Platform.OS === 'web') {
+      if (!window.confirm('确定要删除这个项目吗？')) return;
+    } else {
+      Alert.alert(
+        '确认删除',
+        '确定要删除这个项目吗？',
+        [
+          { text: '取消', style: 'cancel' },
+          { text: '删除', style: 'destructive', onPress: async () => {
+            await performDelete(id);
+          }}
+        ]
+      );
+      return;
+    }
+
+    await performDelete(id);
+  };
+
+  const performDelete = async (id) => {
+    const success = await configService.deleteItem(id);
+
+    if (!success) {
+      Alert.alert('错误', '删除失败，请重试');
+      return;
+    }
+
+    await loadConfig();
+    await refreshConfig();
+  };
+
+  const toggleEnabled = async (type, id) => {
+    const item = config[type][id];
+    const updatedItem = {
+      ...item,
+      enabled: !item.enabled
+    };
+
+    const success = await configService.saveItem(type, id, updatedItem);
+
+    if (!success) {
+      Alert.alert('错误', '更新状态失败，请重试');
+      return;
+    }
+
+    await loadConfig();
+    await refreshConfig();
+  };
+
+  const moveItem = async (type, id, direction) => {
+    const items = Object.entries(config[type]);
+    const sortedItems = items.sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0));
+
+    const currentIndex = sortedItems.findIndex(([key]) => key === id);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= sortedItems.length) return;
+
+    // Swap display_order
+    const reorderedItems = [...sortedItems];
+    [reorderedItems[currentIndex], reorderedItems[newIndex]] =
+    [reorderedItems[newIndex], reorderedItems[currentIndex]];
+
+    const itemsWithNewOrder = reorderedItems.map(([key, value], index) => ({
+      id: key,
+      ...value,
+      display_order: index
+    }));
+
+    const success = await configService.updateOrder(type, itemsWithNewOrder);
+
+    if (!success) {
+      Alert.alert('错误', '更新顺序失败，请重试');
+      return;
+    }
+
+    await loadConfig();
+    await refreshConfig();
+  };
+
+  const getTemplateImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+
+    const { data } = supabase.storage
+      .from('identity-photos')
+      .getPublicUrl(imagePath);
+
+    return data.publicUrl;
+  };
+
+  console.log('[ConfigAdmin] Rendering with state:', {
+    loading,
+    error,
+    activeTab,
+    lookingCount: Object.keys(config.looking || {}).length,
+    templatesCount: Object.keys(config.templates || {}).length,
+    testImagesCount: testImages.length
+  });
+
+  if (loading) {
     return (
-      <View style={styles.editLookSelectorSection}>
-        <Text style={styles.sectionTitle}>Select Edit Look for Templates</Text>
-        <Text style={styles.sectionSubtitle}>
-          Choose which Edit Look result to use as input for Aesthetic Templates
-        </Text>
-
-        <View style={styles.editLookOptionsContainer}>
-          {lookingItems
-            .sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0))
-            .map(([key, item]) => {
-              const cachedResult = cachedLooking[key];
-              const isSelected = selectedEditLookId === key;
-
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.editLookOption,
-                    isSelected && styles.editLookOptionSelected
-                  ]}
-                  onPress={() => handleEditLookSelection(key)}
-                  activeOpacity={0.7}
-                >
-                  {cachedResult && cachedResult.generatedUrl && (
-                    <Image
-                      source={{ uri: cachedResult.generatedUrl }}
-                      style={styles.editLookThumbnail}
-                      resizeMode="cover"
-                    />
-                  )}
-                  <Text style={[
-                    styles.editLookOptionName,
-                    isSelected && styles.editLookOptionNameSelected
-                  ]}>
-                    {item.name}
-                  </Text>
-                  {isSelected && (
-                    <View style={styles.editLookCheckmark}>
-                      <Text style={styles.editLookCheckmarkText}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-        </View>
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#0071e3" />
+        <Text style={styles.loadingText}>加载配置中...</Text>
       </View>
     );
-  };
+  }
 
-  const renderSection = (type, title) => {
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorTitle}>加载失败</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadConfig}>
+          <Text style={styles.retryButtonText}>重试</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const renderConfigItems = (type) => {
     const items = config[type] || {};
     const itemsArray = Object.entries(items);
     const sortedItems = itemsArray.sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0));
-    const itemIds = sortedItems.map(([key]) => key);
 
-    return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{title}</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => openModal(type)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.addButtonText}>Add New</Text>
-          </TouchableOpacity>
+    if (sortedItems.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>暂无配置项</Text>
         </View>
+      );
+    }
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={(event) => handleDragEnd(event, type)}
-        >
-          <SortableContext
-            items={itemIds}
-            strategy={verticalListSortingStrategy}
-          >
-            <View style={styles.itemsGrid}>
-              {sortedItems.map(([key, item]) => {
-                const itemKey = `${type}-${key}`;
-                const isLoading = testingInProgress[itemKey];
-                const cachedResult = cachedResults[type] && cachedResults[type][key];
+    return sortedItems.map(([key, item], index) => {
+      const itemKey = `${type}-${key}`;
+      const isRegenerating = regeneratingItems[itemKey];
+      const canMoveUp = index > 0;
+      const canMoveDown = index < sortedItems.length - 1;
 
-                return (
-                  <SortableItemCard
-                    key={key}
-                    id={key}
-                    item={item}
-                    type={type}
-                    onDelete={deleteItem}
-                    onEdit={openModal}
-                    onToggle={toggleEnabled}
-                    onRegenerate={handleRegeneratePrompt}
-                    onRestore={restoreItem}
-                    isLoading={isLoading || !testImages.length}
-                    cachedResult={cachedResult}
-                    isDeleted={false}
-                  />
-                );
-              })}
+      return (
+        <View key={key} style={styles.itemCard}>
+          {/* Template image preview */}
+          {type === 'templates' && item.image_path && (
+            <Image
+              source={{ uri: getTemplateImageUrl(item.image_path) }}
+              style={styles.templateImage}
+              resizeMode="cover"
+            />
+          )}
+
+          <View style={styles.itemHeader}>
+            <View style={styles.itemTitleRow}>
+              <Text style={styles.itemName}>{item.name}</Text>
+              <View style={styles.itemControls}>
+                {/* Move buttons */}
+                <View style={styles.moveButtons}>
+                  <TouchableOpacity
+                    style={[styles.moveButton, !canMoveUp && styles.moveButtonDisabled]}
+                    onPress={() => canMoveUp && moveItem(type, key, 'up')}
+                    disabled={!canMoveUp}
+                  >
+                    <Text style={styles.moveButtonText}>↑</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.moveButton, !canMoveDown && styles.moveButtonDisabled]}
+                    onPress={() => canMoveDown && moveItem(type, key, 'down')}
+                    disabled={!canMoveDown}
+                  >
+                    <Text style={styles.moveButtonText}>↓</Text>
+                  </TouchableOpacity>
+                </View>
+                {/* Enable toggle */}
+                <TouchableOpacity
+                  style={[styles.enableToggle, item.enabled && styles.enableToggleActive]}
+                  onPress={() => toggleEnabled(type, key)}
+                >
+                  <View style={[styles.enableThumb, item.enabled && styles.enableThumbActive]} />
+                </TouchableOpacity>
+              </View>
             </View>
-          </SortableContext>
-        </DndContext>
-      </View>
-    );
+            <Text style={styles.itemId}>{item.id}</Text>
+          </View>
+
+          <Text style={styles.itemPrompt} numberOfLines={3}>
+            {Array.isArray(item.prompts) ? item.prompts[0] : item.prompt_modifier || ''}
+          </Text>
+
+          {type === 'templates' && item.prompts && item.prompts.length > 1 && (
+            <Text style={styles.promptCount}>
+              +{item.prompts.length - 1} 个额外提示词
+            </Text>
+          )}
+
+          <View style={styles.itemActions}>
+            <Text style={[styles.itemStatus, item.enabled && styles.itemStatusEnabled]}>
+              {item.enabled ? '● 已启用' : '○ 已禁用'}
+            </Text>
+            <View style={styles.actionButtons}>
+              {testImages.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.regenerateButton]}
+                  onPress={() => handleRegeneratePrompt(type, key, item)}
+                  disabled={isRegenerating}
+                >
+                  {isRegenerating ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.regenerateButtonText}>重新生成</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.actionButton, styles.editButton]}
+                onPress={() => openModal(type, key)}
+              >
+                <Text style={styles.editButtonText}>编辑</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.deleteButton]}
+                onPress={() => deleteItem(type, key)}
+              >
+                <Text style={styles.deleteButtonText}>删除</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      );
+    });
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Admin Settings</Text>
-          <Text style={styles.subtitle}>Manage AI character and prompt configurations</Text>
+          <Text style={styles.title}>管理设置</Text>
+          <Text style={styles.subtitle}>管理 AI 角色和提示词配置</Text>
         </View>
 
-        {/* Cache Mode Toggle */}
-        <View style={styles.cacheModeSection}>
-          <View style={styles.cacheModeHeader}>
-            <View>
-              <Text style={styles.cacheModeTitle}>Cache Mode</Text>
+        {/* Cache Mode Card */}
+        <View style={styles.cacheModeCard}>
+          <View style={styles.cacheModeContent}>
+            <View style={styles.cacheModeInfo}>
+              <Text style={styles.cacheModeTitle}>缓存模式</Text>
               <Text style={styles.cacheModeSubtitle}>
-                {cacheMode
-                  ? 'Using cached results (saves API credits)'
-                  : 'Using live API calls'}
+                {cacheMode ? '使用缓存结果（节省 API 额度）' : '使用实时 API 调用'}
               </Text>
             </View>
-            <Switch
-              value={cacheMode}
-              onValueChange={handleCacheModeToggle}
-              trackColor={{ false: '#d2d2d7', true: '#34c759' }}
-              thumbColor="#fff"
-              style={styles.cacheModeSwitch}
-            />
+            <TouchableOpacity
+              style={[styles.toggle, cacheMode && styles.toggleActive]}
+              onPress={handleCacheModeToggle}
+            >
+              <View style={[styles.toggleThumb, cacheMode && styles.toggleThumbActive]} />
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* Test Images Section */}
-        <View style={styles.testImagesSection}>
-          <Text style={styles.sectionTitle}>Test Images (Models)</Text>
-          <Text style={styles.sectionSubtitle}>
-            Upload test images to pre-generate all looks. Results are cached for faster testing.
-          </Text>
-
-          <View style={styles.testImagesControls}>
+        <View style={styles.testImagesCard}>
+          <View style={styles.testImagesHeader}>
+            <Text style={styles.testImagesTitle}>测试图片（模特）</Text>
             <TouchableOpacity
-              style={[styles.uploadButton, (isUploadingImage || isBatchGenerating) && styles.disabledButton]}
+              style={styles.uploadButton}
               onPress={handleImagePick}
-              activeOpacity={0.7}
               disabled={isUploadingImage || isBatchGenerating}
             >
               {isUploadingImage ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.uploadButtonText}>📤 Upload Test Image</Text>
+                <Text style={styles.uploadButtonText}>📤 上传测试图片</Text>
               )}
             </TouchableOpacity>
-
-            {testImages.length > 0 && testImages[selectedTestImageIndex] && (
-              <TouchableOpacity
-                style={[styles.generateCacheButton, isBatchGenerating && styles.disabledButton]}
-                onPress={() => handleBatchGenerate(testImages[selectedTestImageIndex])}
-                activeOpacity={0.7}
-                disabled={isBatchGenerating}
-              >
-                {isBatchGenerating ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.generateCacheButtonText}>🔄 Generate Cache</Text>
-                )}
-              </TouchableOpacity>
-            )}
           </View>
 
+          <Text style={styles.testImagesSubtitle}>
+            上传测试图片以预生成所有外观。结果已缓存以便更快测试。
+          </Text>
+
           {isBatchGenerating && (
-            <View style={styles.progressContainer}>
-              <Text style={styles.progressText}>
-                Generating cache: {batchProgress.current} / {batchProgress.total}
+            <View style={styles.progressCard}>
+              <Text style={styles.progressTitle}>
+                生成缓存中: {batchProgress.current} / {batchProgress.total}
               </Text>
               {batchProgress.item && (
-                <Text style={styles.progressItem}>
-                  Current: {batchProgress.item.name}
+                <Text style={styles.progressSubtitle}>
+                  当前: {batchProgress.item.name}
                 </Text>
               )}
               <View style={styles.progressBar}>
                 <View
                   style={[
-                    styles.progressBarFill,
+                    styles.progressFill,
                     { width: `${(batchProgress.current / batchProgress.total) * 100}%` }
                   ]}
                 />
@@ -1073,116 +778,138 @@ function ConfigAdmin() {
           )}
 
           {testImages.length > 0 && (
-            <ScrollView horizontal style={styles.testImagesScroll} showsHorizontalScrollIndicator={true}>
-              {testImages.map((img, index) => (
-                <View key={index} style={styles.testImageItem}>
-                  <TouchableOpacity
-                    onPress={() => setSelectedTestImageIndex(index)}
-                    style={[
-                      styles.testImageWrapper,
-                      selectedTestImageIndex === index && styles.testImageSelected
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Image
-                      source={{ uri: img.url }}
-                      style={styles.testImageThumb}
-                      resizeMode="cover"
-                    />
-                    {selectedTestImageIndex === index && (
-                      <View style={styles.selectedBadge}>
-                        <Text style={styles.selectedBadgeText}>✓</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.removeThumbButton}
-                    onPress={() => removeTestImage(index)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.removeThumbButtonText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.testImagesScroll}>
+              <View style={styles.testImagesContainer}>
+                {testImages.map((img, index) => (
+                  <View key={index} style={styles.testImageWrapper}>
+                    <TouchableOpacity
+                      style={[
+                        styles.testImageCard,
+                        selectedTestImageIndex === index && styles.testImageCardSelected
+                      ]}
+                      onPress={() => {
+                        setSelectedTestImageIndex(index);
+                        setSelectedTestImageId(img.id);
+                      }}
+                    >
+                      <Image
+                        source={{ uri: img.url }}
+                        style={styles.testImage}
+                        resizeMode="cover"
+                      />
+                      {selectedTestImageIndex === index && (
+                        <View style={styles.selectedBadge}>
+                          <Text style={styles.selectedBadgeText}>✓</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => removeTestImage(index)}
+                    >
+                      <Text style={styles.removeImageButtonText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
             </ScrollView>
+          )}
+
+          {testImages.length > 0 && testImages[selectedTestImageIndex] && (
+            <TouchableOpacity
+              style={styles.batchGenerateButton}
+              onPress={() => handleBatchGenerate(testImages[selectedTestImageIndex])}
+              disabled={isBatchGenerating}
+            >
+              {isBatchGenerating ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.batchGenerateButtonText}>🔄 生成缓存</Text>
+              )}
+            </TouchableOpacity>
           )}
         </View>
 
         {/* Tab Navigation */}
-        <View style={styles.tabNavigation}>
+        <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'looking' && styles.tabButtonActive]}
+            style={[styles.tab, activeTab === 'looking' && styles.tabActive]}
             onPress={() => setActiveTab('looking')}
-            activeOpacity={0.7}
           >
-            <Text style={[styles.tabButtonText, activeTab === 'looking' && styles.tabButtonTextActive]}>
-              Edit Look
+            <Text style={[styles.tabText, activeTab === 'looking' && styles.tabTextActive]}>
+              Edit Look ({Object.keys(config.looking || {}).length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'templates' && styles.tabButtonActive]}
+            style={[styles.tab, activeTab === 'templates' && styles.tabActive]}
             onPress={() => setActiveTab('templates')}
-            activeOpacity={0.7}
           >
-            <Text style={[styles.tabButtonText, activeTab === 'templates' && styles.tabButtonTextActive]}>
-              Templates
+            <Text style={[styles.tabText, activeTab === 'templates' && styles.tabTextActive]}>
+              模板 ({Object.keys(config.templates || {}).length})
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Render content based on active tab */}
-        {activeTab === 'looking' && renderSection('looking', 'Edit Look')}
-        {activeTab === 'looking' && renderEditLookSelector()}
-        {activeTab === 'templates' && (
-          <>
-            {renderEditLookSelector()}
-            {renderSection('templates', 'Aesthetic Templates')}
-          </>
-        )}
-      </View>
+        {/* Content */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {activeTab === 'looking' ? 'Edit Look 配置' : '美学模板'}
+            </Text>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => openModal(activeTab)}
+            >
+              <Text style={styles.addButtonText}>+ 添加新项</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.itemsContainer}>
+            {renderConfigItems(activeTab)}
+          </View>
+        </View>
+      </ScrollView>
 
       {/* Edit/Add Modal */}
       <Modal
         visible={modalVisible}
+        animationType="slide"
         transparent={true}
-        animationType="fade"
         onRequestClose={closeModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <ScrollView style={styles.modalScrollContent}>
+            <ScrollView style={styles.modalScroll}>
               <Text style={styles.modalTitle}>
-                {editingId ? 'Edit Item' : 'Add New Item'}
+                {editingId ? '编辑项目' : '添加新项目'}
               </Text>
 
+              {/* ID Field */}
               <View style={styles.formGroup}>
-                <Text style={styles.label}>
-                  ID {!editingId && '(Auto-generated)'}
-                </Text>
+                <Text style={styles.label}>ID {!editingId && '(自动生成)'}</Text>
                 <TextInput
                   style={[styles.input, styles.inputDisabled]}
                   value={formData.id}
-                  onChangeText={(text) => setFormData({ ...formData, id: text })}
-                  placeholder="Auto-generated"
                   editable={false}
+                  placeholder="自动生成"
                 />
               </View>
 
+              {/* Name Field */}
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Name</Text>
+                <Text style={styles.label}>名称 *</Text>
                 <TextInput
                   style={styles.input}
                   value={formData.name}
                   onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  placeholder="e.g., Better-Looking"
+                  placeholder="例如: Better-Looking"
                 />
               </View>
 
-              {/* Prompt inputs - 1 for Edit Look, 3 for Templates */}
+              {/* Prompts Fields */}
               {currentType === 'templates' ? (
                 <>
                   <View style={styles.formGroup}>
-                    <Text style={styles.label}>Prompt 1 (Required)</Text>
+                    <Text style={styles.label}>提示词 1 (必填) *</Text>
                     <TextInput
                       style={[styles.input, styles.textArea]}
                       value={formData.prompts[0]}
@@ -1191,14 +918,14 @@ function ConfigAdmin() {
                         newPrompts[0] = text;
                         setFormData({ ...formData, prompts: newPrompts });
                       }}
-                      placeholder="First prompt..."
+                      placeholder="第一个提示词..."
                       multiline
                       numberOfLines={3}
                     />
                   </View>
 
                   <View style={styles.formGroup}>
-                    <Text style={styles.label}>Prompt 2 (Optional)</Text>
+                    <Text style={styles.label}>提示词 2 (可选)</Text>
                     <TextInput
                       style={[styles.input, styles.textArea]}
                       value={formData.prompts[1]}
@@ -1207,14 +934,14 @@ function ConfigAdmin() {
                         newPrompts[1] = text;
                         setFormData({ ...formData, prompts: newPrompts });
                       }}
-                      placeholder="Second prompt..."
+                      placeholder="第二个提示词..."
                       multiline
                       numberOfLines={3}
                     />
                   </View>
 
                   <View style={styles.formGroup}>
-                    <Text style={styles.label}>Prompt 3 (Optional)</Text>
+                    <Text style={styles.label}>提示词 3 (可选)</Text>
                     <TextInput
                       style={[styles.input, styles.textArea]}
                       value={formData.prompts[2]}
@@ -1223,15 +950,28 @@ function ConfigAdmin() {
                         newPrompts[2] = text;
                         setFormData({ ...formData, prompts: newPrompts });
                       }}
-                      placeholder="Third prompt..."
+                      placeholder="第三个提示词..."
                       multiline
                       numberOfLines={3}
                     />
                   </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>图片路径 (可选)</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={formData.image_path}
+                      onChangeText={(text) => setFormData({ ...formData, image_path: text })}
+                      placeholder="例如: anonymous/style-templates/example.jpg"
+                    />
+                    <Text style={styles.helpText}>
+                      提示: 需要先上传图片到 Supabase Storage
+                    </Text>
+                  </View>
                 </>
               ) : (
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Prompt</Text>
+                  <Text style={styles.label}>提示词 *</Text>
                   <TextInput
                     style={[styles.input, styles.textArea]}
                     value={formData.prompts[0]}
@@ -1240,84 +980,46 @@ function ConfigAdmin() {
                       newPrompts[0] = text;
                       setFormData({ ...formData, prompts: newPrompts });
                     }}
-                    placeholder="e.g., better-looking, enhanced features, more attractive, photorealistic, realistic lighting, high detail, lifelike"
+                    placeholder="例如: better-looking, enhanced features, more attractive"
                     multiline
                     numberOfLines={4}
                   />
                 </View>
               )}
 
-              {currentType === 'templates' && (
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Template Image</Text>
-                  <View style={styles.imageUploadContainer}>
-                    <TextInput
-                      style={[styles.input, styles.inputDisabled]}
-                      value={formData.image_path}
-                      placeholder="Upload an image..."
-                      editable={false}
-                    />
-                    <TouchableOpacity
-                      style={[styles.uploadButton, isUploadingTemplateImage && styles.disabledButton]}
-                      onPress={handleTemplateImageUpload}
-                      disabled={isUploadingTemplateImage}
-                      activeOpacity={0.7}
-                    >
-                      {isUploadingTemplateImage ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text style={styles.uploadButtonText}>Upload</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-
-                  {(formData.image_path || uploadedImagePreview) && (
-                    <View style={styles.imagePreviewContainer}>
-                      <Image
-                        source={{
-                          uri: uploadedImagePreview || getTemplateImageUrl(formData.image_path)
-                        }}
-                        style={styles.imagePreview}
-                        resizeMode="cover"
-                      />
-                    </View>
-                  )}
-                </View>
-              )}
-
+              {/* Enabled Toggle */}
               <View style={styles.formGroup}>
-                <View style={styles.switchRow}>
-                  <Text style={styles.label}>Enabled in App</Text>
-                  <Switch
-                    value={formData.enabled}
-                    onValueChange={(value) => setFormData({ ...formData, enabled: value })}
-                    trackColor={{ false: '#d2d2d7', true: '#34c759' }}
-                    thumbColor="#fff"
-                  />
+                <View style={styles.enabledRow}>
+                  <Text style={styles.label}>在应用中启用</Text>
+                  <TouchableOpacity
+                    style={[styles.toggle, formData.enabled && styles.toggleActive]}
+                    onPress={() => setFormData({ ...formData, enabled: !formData.enabled })}
+                  >
+                    <View style={[styles.toggleThumb, formData.enabled && styles.toggleThumbActive]} />
+                  </TouchableOpacity>
                 </View>
               </View>
             </ScrollView>
 
-            <View style={styles.modalFooter}>
+            {/* Modal Actions */}
+            <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.secondaryButton}
+                style={[styles.modalButton, styles.cancelButton]}
                 onPress={closeModal}
-                activeOpacity={0.7}
               >
-                <Text style={styles.secondaryButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>取消</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.addButton}
+                style={[styles.modalButton, styles.saveButton]}
                 onPress={saveItem}
-                activeOpacity={0.7}
               >
-                <Text style={styles.addButtonText}>Save</Text>
+                <Text style={styles.saveButtonText}>保存</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -1325,47 +1027,51 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f7',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  content: {
-    maxWidth: 1200,
+  scrollView: {
+    flex: 1,
     width: '100%',
+  },
+  scrollContent: {
+    padding: 20,
+    maxWidth: 1200,
     alignSelf: 'center',
+    width: '100%',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
   },
   title: {
-    fontSize: 48,
+    fontSize: 32,
     fontWeight: '600',
     color: '#1d1d1f',
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 21,
+    fontSize: 18,
     color: '#6e6e73',
-    textAlign: 'center',
   },
-  cacheModeSection: {
-    backgroundColor: '#fff3cd',
-    borderRadius: 18,
-    padding: 24,
-    marginBottom: 24,
+  cacheModeCard: {
+    backgroundColor: '#fff9e6',
     borderWidth: 2,
-    borderColor: '#ffc107',
+    borderColor: '#f5c542',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
   },
-  cacheModeHeader: {
+  cacheModeContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  cacheModeInfo: {
+    flex: 1,
+  },
   cacheModeTitle: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '600',
     color: '#1d1d1f',
     marginBottom: 4,
@@ -1374,89 +1080,78 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6e6e73',
   },
-  cacheModeSwitch: {
-    transform: [{ scaleX: 1.2 }, { scaleY: 1.2 }],
+  testImagesCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
   },
-  testImagesSection: {
-    backgroundColor: 'white',
-    borderRadius: 18,
-    padding: 32,
-    marginBottom: 24,
+  testImagesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  sectionSubtitle: {
+  testImagesTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1d1d1f',
+  },
+  testImagesSubtitle: {
     fontSize: 14,
     color: '#6e6e73',
-    marginTop: 8,
     marginBottom: 16,
-  },
-  testImagesControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
   },
   uploadButton: {
     backgroundColor: '#0071e3',
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 100,
+    borderRadius: 20,
   },
   uploadButtonText: {
-    color: 'white',
+    color: '#ffffff',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  generateCacheButton: {
-    backgroundColor: '#34c759',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginLeft: 12,
-  },
-  generateCacheButtonText: {
-    color: 'white',
-    fontSize: 15,
     fontWeight: '500',
   },
-  progressContainer: {
+  progressCard: {
     backgroundColor: '#f5f5f7',
-    padding: 16,
     borderRadius: 8,
-    marginBottom: 20,
+    padding: 12,
+    marginBottom: 16,
   },
-  progressText: {
+  progressTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1d1d1f',
     marginBottom: 4,
   },
-  progressItem: {
+  progressSubtitle: {
     fontSize: 12,
     color: '#6e6e73',
     marginBottom: 12,
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#d2d2d7',
+    backgroundColor: '#e5e5e7',
     borderRadius: 4,
     overflow: 'hidden',
   },
-  progressBarFill: {
+  progressFill: {
     height: '100%',
     backgroundColor: '#34c759',
     borderRadius: 4,
   },
   testImagesScroll: {
-    marginTop: 12,
+    marginBottom: 16,
   },
-  testImageItem: {
-    marginRight: 16,
-    alignItems: 'center',
+  testImagesContainer: {
+    flexDirection: 'row',
+    gap: 12,
   },
   testImageWrapper: {
+    alignItems: 'center',
+  },
+  testImageCard: {
     width: 120,
     height: 120,
     borderRadius: 8,
@@ -1465,10 +1160,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  testImageSelected: {
+  testImageCardSelected: {
     borderColor: '#0071e3',
   },
-  testImageThumb: {
+  testImage: {
     width: '100%',
     height: '100%',
   },
@@ -1484,191 +1179,140 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedBadgeText: {
-    color: 'white',
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  removeImageButton: {
+    backgroundColor: '#ff3b30',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  removeImageButtonText: {
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: 'bold',
   },
-  removeThumbButton: {
-    marginTop: 8,
-    backgroundColor: '#ff3b30',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  removeThumbButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  tabNavigation: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
-  },
-  tabButton: {
-    flex: 1,
+  batchGenerateButton: {
+    backgroundColor: '#34c759',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: 'center',
   },
-  tabButtonActive: {
+  batchGenerateButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  toggle: {
+    width: 51,
+    height: 31,
+    borderRadius: 16,
+    backgroundColor: '#e5e5e7',
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleActive: {
     backgroundColor: '#0071e3',
   },
-  tabButtonText: {
+  toggleThumb: {
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  toggleThumbActive: {
+    transform: [{ translateX: 20 }],
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 20,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  tabActive: {
+    backgroundColor: '#0071e3',
+  },
+  tabText: {
     fontSize: 15,
     fontWeight: '500',
     color: '#6e6e73',
   },
-  tabButtonTextActive: {
-    color: 'white',
-  },
-  editLookSelectorSection: {
-    backgroundColor: 'white',
-    borderRadius: 18,
-    padding: 32,
-    marginBottom: 24,
-  },
-  editLookOptionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginTop: 16,
-  },
-  editLookOption: {
-    flex: 1,
-    flexBasis: '20%',
-    minWidth: 140,
-    backgroundColor: '#f5f5f7',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: '#e5e5e7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editLookOptionSelected: {
-    borderColor: '#0071e3',
-    backgroundColor: '#e3f2ff',
-  },
-  editLookThumbnail: {
-    width: 80,
-    height: 120,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  editLookOptionName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1d1d1f',
-    textAlign: 'center',
-  },
-  editLookOptionNameSelected: {
-    color: '#0071e3',
-  },
-  editLookCheckmark: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#0071e3',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editLookCheckmarkText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+  tabTextActive: {
+    color: '#ffffff',
   },
   section: {
-    backgroundColor: 'white',
-    borderRadius: 18,
-    padding: 32,
-    marginBottom: 24,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e7',
   },
   sectionTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '600',
     color: '#1d1d1f',
   },
   addButton: {
     backgroundColor: '#0071e3',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 980,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
   addButtonText: {
-    color: 'white',
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: '500',
   },
-  itemsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  itemsContainer: {
     gap: 16,
   },
   itemCard: {
     backgroundColor: '#f5f5f7',
-    borderRadius: 12,
-    padding: 20,
-    minWidth: 300,
-    flex: 1,
-    flexBasis: '30%',
-    position: 'relative',
-  },
-  itemCardTemplate: {
-    flexBasis: '48%',
-    minWidth: 280,
-  },
-  itemCardDeleted: {
-    opacity: 0.6,
-    backgroundColor: '#ffe5e5',
-  },
-  dragHandle: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    padding: 8,
-    cursor: 'grab',
-    zIndex: 10,
-  },
-  dragHandleIcon: {
-    fontSize: 20,
-    color: '#8e8e93',
-    fontWeight: 'bold',
-    userSelect: 'none',
-  },
-  templateImage: {
-    width: '100%',
-    height: 120,
-    borderRadius: 8,
+    borderRadius: 10,
+    padding: 16,
     marginBottom: 12,
   },
-  templateImageVertical: {
-    width: '25%',
+  templateImage: {
+    width: '30%',
     aspectRatio: 9 / 16,
     borderRadius: 8,
     marginBottom: 12,
     alignSelf: 'center',
   },
   itemHeader: {
+    marginBottom: 8,
+  },
+  itemTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   itemName: {
     fontSize: 17,
@@ -1676,158 +1320,181 @@ const styles = StyleSheet.create({
     color: '#1d1d1f',
     flex: 1,
   },
-  itemActions: {
+  itemControls: {
     flexDirection: 'row',
-    gap: 8,
     alignItems: 'center',
+    gap: 8,
   },
-  textButton: {
-    backgroundColor: '#0071e3',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  moveButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  moveButton: {
+    width: 28,
+    height: 28,
+    backgroundColor: '#e5e5e7',
     borderRadius: 6,
-    marginLeft: 8,
-    minWidth: 80,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteButton: {
-    backgroundColor: '#ff3b30',
+  moveButtonDisabled: {
+    opacity: 0.3,
   },
-  restoreButton: {
+  moveButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1d1d1f',
+  },
+  enableToggle: {
+    width: 40,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#e5e5e7',
+    padding: 2,
+    justifyContent: 'center',
+  },
+  enableToggleActive: {
     backgroundColor: '#34c759',
   },
-  textButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
+  enableThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
   },
-  switch: {
-    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
+  enableThumbActive: {
+    transform: [{ translateX: 16 }],
+  },
+  itemId: {
+    fontSize: 13,
+    color: '#6e6e73',
   },
   itemPrompt: {
     fontSize: 14,
     color: '#1d1d1f',
-    lineHeight: 21,
+    lineHeight: 20,
+    marginBottom: 8,
   },
-  enabledStatus: {
+  promptCount: {
     fontSize: 12,
-    marginTop: 8,
-    fontWeight: '500',
+    color: '#0071e3',
+    marginBottom: 8,
   },
-  enabled: {
+  itemActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  itemStatus: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6e6e73',
+  },
+  itemStatusEnabled: {
     color: '#34c759',
   },
-  disabled: {
-    color: '#8e8e93',
-  },
-  deletedBadge: {
-    fontSize: 12,
-    marginTop: 8,
-    fontWeight: '500',
-    color: '#ff3b30',
-  },
-  testResultInline: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e5e7',
-  },
-  testResultLabel: {
-    fontSize: 12,
-    color: '#6e6e73',
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  resultImageInline: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  resultImageInlineVertical: {
-    width: '25%',
-    aspectRatio: 9 / 16,
-    borderRadius: 8,
-    marginBottom: 8,
-    alignSelf: 'center',
-  },
-  multiImagesContainer: {
+  actionButtons: {
     flexDirection: 'row',
     gap: 8,
-    width: '100%',
-    marginVertical: 8,
-    justifyContent: 'space-between',
   },
-  imageWrapper: {
-    flex: 1,
-    alignItems: 'center',
+  actionButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
   },
-  resultImageMultiple: {
-    width: '100%',
-    aspectRatio: 9 / 16,
+  regenerateButton: {
+    backgroundColor: '#34c759',
+  },
+  regenerateButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  editButton: {
+    backgroundColor: '#0071e3',
+  },
+  editButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  deleteButton: {
+    backgroundColor: '#ff3b30',
+  },
+  deleteButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6e6e73',
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ff3b30',
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#6e6e73',
+    textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    backgroundColor: '#0071e3',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
-    backgroundColor: '#f0f0f0',
   },
-  imageIndexLabel: {
-    fontSize: 10,
-    color: '#888',
-    marginTop: 4,
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: '600',
   },
-  cacheTimestamp: {
-    fontSize: 11,
-    color: '#8e8e93',
-    fontStyle: 'italic',
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
   },
   emptyText: {
     fontSize: 16,
     color: '#6e6e73',
-    textAlign: 'center',
-    paddingVertical: 40,
   },
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 18,
-    width: '95%',
-    maxWidth: 900,
-    height: '95%',
-    maxHeight: '95vh',
-    display: 'flex',
-    flexDirection: 'column',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
-  modalScrollContent: {
-    flex: 1,
-    padding: 32,
-    paddingBottom: 20,
-    overflowY: 'auto',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
+  modalScroll: {
     padding: 20,
-    paddingRight: 32,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e5e7',
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
+    maxHeight: 600,
   },
   modalTitle: {
     fontSize: 24,
     fontWeight: '600',
-    marginBottom: 24,
     color: '#1d1d1f',
+    marginBottom: 20,
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
@@ -1836,59 +1503,61 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
-    width: '100%',
-    padding: 12,
+    backgroundColor: '#f5f5f7',
     borderWidth: 1,
     borderColor: '#d2d2d7',
     borderRadius: 8,
+    padding: 12,
     fontSize: 15,
+    color: '#1d1d1f',
   },
   inputDisabled: {
-    backgroundColor: '#f5f5f7',
-    color: '#8e8e93',
+    backgroundColor: '#e5e5e7',
+    color: '#6e6e73',
   },
   textArea: {
-    minHeight: 100,
+    minHeight: 80,
     textAlignVertical: 'top',
-    paddingTop: 12,
   },
-  switchRow: {
+  helpText: {
+    fontSize: 12,
+    color: '#6e6e73',
+    marginTop: 4,
+  },
+  enabledRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   modalActions: {
-    // Removed - using modalFooter instead
-  },
-  secondaryButton: {
-    backgroundColor: '#e8e8ed',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 980,
-  },
-  secondaryButtonText: {
-    color: '#1d1d1f',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  imageUploadContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
+    padding: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e5e7',
   },
-  imagePreviewContainer: {
-    marginTop: 12,
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  imagePreview: {
-    width: 100,
-    height: 150,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e5e5e7',
+  cancelButton: {
+    backgroundColor: '#e5e5e7',
+  },
+  cancelButtonText: {
+    color: '#1d1d1f',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    backgroundColor: '#0071e3',
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
