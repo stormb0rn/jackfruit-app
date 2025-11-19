@@ -3,7 +3,7 @@
  * 展示完整的5状态机 + 真实TTS + VAD 功能
  */
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import NovaOrbCanvas from '../components/NovaOrbCanvas'
 import useOrbStateMachine from '../hooks/useOrbStateMachine'
@@ -32,9 +32,32 @@ export default function VoiceChat() {
   const [conversationHistory, setConversationHistory] = useState([])
   const [isRecording, setIsRecording] = useState(false)
   const [error, setError] = useState(null)
+  const [browserSupport, setBrowserSupport] = useState(null)
+
+  // 检查浏览器支持
+  useEffect(() => {
+    const support = voiceService.constructor.isSupported()
+    setBrowserSupport(support)
+    console.log('[VoiceChat] 浏览器支持检测:', support)
+
+    if (!support.recognition) {
+      console.warn('[VoiceChat] ⚠️ 浏览器不支持语音识别')
+    }
+  }, [])
 
   // 开始录音
   const handleStartRecording = async () => {
+    console.log('[VoiceChat] 🎤 开始录音...')
+
+    // 检查浏览器支持
+    const support = voiceService.constructor.isSupported()
+    console.log('[VoiceChat] 浏览器支持情况:', support)
+
+    if (!support.recognition) {
+      setError('您的浏览器不支持语音识别，请使用 Chrome 浏览器')
+      return
+    }
+
     setError(null)
     setTranscript('')
     setInterimTranscript('')
@@ -43,35 +66,58 @@ export default function VoiceChat() {
     let finalText = ''
 
     // 启动语音识别
-    voiceService.startRecognition({
+    const started = voiceService.startRecognition({
       onResult: (result) => {
+        console.log('[VoiceChat] 📝 识别结果:', result)
         if (result.interim) {
           setInterimTranscript(result.interim)
+          console.log('[VoiceChat] 临时文本:', result.interim)
         }
         if (result.final) {
           finalText = result.final
           setTranscript(result.final)
           setInterimTranscript('')
+          console.log('[VoiceChat] ✅ 最终文本:', result.final)
         }
       },
       onEnd: async () => {
         // 语音识别结束，处理用户消息
-        console.log('[VoiceChat] Recognition ended, final text:', finalText)
+        console.log('[VoiceChat] ⏹ Recognition ended, final text:', finalText)
         if (finalText && finalText.trim().length > 0) {
           await handleUserMessage(finalText)
         } else {
-          setError('没有识别到语音，请重试')
+          setError('没有识别到语音，请重试。提示：说话后需要停顿1-2秒让浏览器处理。')
           reset()
           setIsRecording(false)
         }
       },
       onError: (err) => {
-        console.error('[VoiceChat] Speech recognition error:', err)
-        setError('语音识别失败，请重试')
+        console.error('[VoiceChat] ❌ Speech recognition error:', err)
+        let errorMsg = '语音识别失败：'
+        switch(err) {
+          case 'no-speech':
+            errorMsg += '没有检测到语音，请确保麦克风正常工作'
+            break
+          case 'audio-capture':
+            errorMsg += '无法访问麦克风，请检查权限'
+            break
+          case 'not-allowed':
+            errorMsg += '麦克风权限被拒绝，请允许使用麦克风'
+            break
+          default:
+            errorMsg += err
+        }
+        setError(errorMsg)
         reset()
         setIsRecording(false)
       }
     })
+
+    if (!started) {
+      setError('语音识别启动失败，请刷新页面重试')
+      setIsRecording(false)
+      return
+    }
 
     // 启动光球监听模式（带 VAD）
     const success = await startListening({
@@ -201,6 +247,16 @@ export default function VoiceChat() {
             {characterId ? `与角色 #${characterId} 对话` : '演示模式'}
           </p>
         </header>
+
+        {/* 浏览器兼容性警告 */}
+        {browserSupport && !browserSupport.recognition && (
+          <div className="error-message" style={{ marginBottom: '1rem' }}>
+            <p>⚠️ 您的浏览器不支持语音识别功能</p>
+            <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+              建议使用 <strong>Chrome 浏览器</strong> 以获得最佳体验
+            </p>
+          </div>
+        )}
 
         {/* 状态指示器 */}
         <div className="status-indicator">

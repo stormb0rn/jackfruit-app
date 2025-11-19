@@ -47,8 +47,9 @@ class VoiceService {
     }
 
     this.recognition = new SpeechRecognition()
-    this.recognition.continuous = false       // 单次识别
+    this.recognition.continuous = true        // 连续识别（改为 true，支持更长时间录音）
     this.recognition.interimResults = true    // 实时返回临时结果
+    this.recognition.maxAlternatives = 1      // 只返回最佳结果
     this.recognition.lang = this.recognitionLang
 
     // 识别结果回调
