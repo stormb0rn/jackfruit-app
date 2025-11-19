@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Tabs, Card, Select, Radio, Switch, Button, message, Modal, Form, Input, Space } from 'antd'
-import { SaveOutlined, EyeOutlined } from '@ant-design/icons'
+import { Tabs, Card, Select, Radio, Switch, Button, message, Modal, Form, Input, Space, Upload } from 'antd'
+import { SaveOutlined, EyeOutlined, UploadOutlined, SoundOutlined } from '@ant-design/icons'
 import { supabase } from '../../services/supabaseClient'
 
 const { TabPane } = Tabs
@@ -12,6 +12,7 @@ export const OnboardingConfigs = () => {
   const [characters, setCharacters] = useState([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [activeTab, setActiveTab] = useState('global')
   const [form] = Form.useForm()
 
@@ -61,7 +62,8 @@ export const OnboardingConfigs = () => {
           font_family: themeData.global_styles?.font_family || "'VT323', monospace",
           primary_color: themeData.global_styles?.primary_color || '#00FF41',
           background_overlay: themeData.global_styles?.background_overlay || 'rgba(0, 0, 0, 0.7)',
-          animation_speed: themeData.global_styles?.animation_speed || 'medium'
+          animation_speed: themeData.global_styles?.animation_speed || 'medium',
+          background_music_url: themeData.global_styles?.background_music_url || ''
         })
       }
     } catch (error) {
@@ -96,7 +98,8 @@ export const OnboardingConfigs = () => {
             font_family: values.font_family,
             primary_color: values.primary_color,
             background_overlay: values.background_overlay,
-            animation_speed: values.animation_speed
+            animation_speed: values.animation_speed,
+            background_music_url: values.background_music_url || ''
           },
           updated_at: new Date().toISOString()
         })
@@ -110,6 +113,40 @@ export const OnboardingConfigs = () => {
       message.error('Save failed: ' + error.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleUploadMusic = async ({ file, onSuccess, onError }) => {
+    try {
+      setUploading(true)
+
+      const fileExt = file.name.split('.').pop()
+      const fileName = `global-music/background-music-${Date.now()}.${fileExt}`
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('onboarding-resources')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (error) throw error
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('onboarding-resources')
+        .getPublicUrl(fileName)
+
+      message.success('Background music uploaded successfully!')
+      form.setFieldsValue({ background_music_url: urlData.publicUrl })
+      onSuccess()
+    } catch (error) {
+      console.error('Upload error:', error)
+      message.error('Upload failed: ' + error.message)
+      onError()
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -308,6 +345,45 @@ export const OnboardingConfigs = () => {
                   <Radio value="slow">Slow</Radio>
                 </Radio.Group>
               </Form.Item>
+
+              <Form.Item
+                label="Background Music URL"
+                name="background_music_url"
+                help="Global background music that loops continuously throughout all onboarding steps"
+              >
+                <Input
+                  placeholder="https://your-audio-url.com/music.mp3"
+                  addonAfter={
+                    <Upload
+                      accept="audio/*"
+                      showUploadList={false}
+                      customRequest={handleUploadMusic}
+                    >
+                      <Button
+                        icon={<SoundOutlined />}
+                        loading={uploading}
+                        size="small"
+                      >
+                        Upload Music
+                      </Button>
+                    </Upload>
+                  }
+                />
+              </Form.Item>
+
+              {form.getFieldValue('background_music_url') && (
+                <div style={{ marginBottom: 16 }}>
+                  <p style={{ fontWeight: 'bold', marginBottom: 8 }}>
+                    <SoundOutlined /> Background Music Preview:
+                  </p>
+                  <audio
+                    src={form.getFieldValue('background_music_url')}
+                    controls
+                    loop
+                    style={{ width: '100%', maxWidth: 400 }}
+                  />
+                </div>
+              )}
 
               <Form.Item>
                 <Button type="primary" htmlType="submit" loading={saving}>

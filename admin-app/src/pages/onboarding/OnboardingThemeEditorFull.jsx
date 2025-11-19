@@ -52,6 +52,43 @@ export const OnboardingThemeEditorFull = () => {
           formValues[`step${step.key}_background_url`] = stepData?.visual?.background_url || ''
           formValues[`step${step.key}_background_audio_url`] = stepData?.visual?.background_audio_url || ''
           formValues[`step${step.key}_title`] = stepData?.content?.title || ''
+
+          // Step 1 特有字段: lines
+          if (step.key === 1) {
+            const lines = stepData?.content?.lines || []
+            formValues[`step${step.key}_lines`] = lines.join('\n')
+          }
+
+          // Step 2 特有字段: greeting 和 messages
+          if (step.key === 2) {
+            formValues[`step${step.key}_greeting`] = stepData?.content?.greeting || ''
+            const messages = stepData?.content?.messages || []
+            formValues[`step${step.key}_messages`] = messages.join('\n')
+          }
+
+          // Step 4 特有字段: question 和 options
+          if (step.key === 4) {
+            formValues[`step${step.key}_question`] = stepData?.content?.question || ''
+            formValues[`step${step.key}_options`] = JSON.stringify(stepData?.content?.options || [], null, 2)
+          }
+
+          // Step 5 特有字段: stages
+          if (step.key === 5) {
+            const stages = stepData?.content?.stages || []
+            formValues[`step${step.key}_stages`] = stages.join('\n')
+          }
+
+          // Step 6 特有字段: steps 和 completion_message
+          if (step.key === 6) {
+            const stepsArray = stepData?.content?.steps || []
+            formValues[`step${step.key}_steps`] = stepsArray.join('\n')
+            formValues[`step${step.key}_completion_message`] = stepData?.content?.completion_message || ''
+          }
+
+          // Step 7 特有字段: subtitle
+          if (step.key === 7) {
+            formValues[`step${step.key}_subtitle`] = stepData?.content?.subtitle || ''
+          }
         })
         form.setFieldsValue(formValues)
       }
@@ -106,6 +143,65 @@ export const OnboardingThemeEditorFull = () => {
 
       steps.forEach(step => {
         const existingData = theme[step.dbKey] || {}
+        const contentUpdate = {
+          ...existingData.content,
+          title: values[`step${step.key}_title`] || ''
+        }
+
+        // Step 1 特有字段: lines
+        if (step.key === 1) {
+          const linesText = values[`step${step.key}_lines`] || ''
+          contentUpdate.lines = linesText
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+        }
+
+        // Step 2 特有字段: greeting 和 messages
+        if (step.key === 2) {
+          contentUpdate.greeting = values[`step${step.key}_greeting`] || ''
+          const messagesText = values[`step${step.key}_messages`] || ''
+          contentUpdate.messages = messagesText
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+        }
+
+        // Step 4 特有字段: question 和 options
+        if (step.key === 4) {
+          contentUpdate.question = values[`step${step.key}_question`] || ''
+          try {
+            contentUpdate.options = JSON.parse(values[`step${step.key}_options`] || '[]')
+          } catch (e) {
+            console.error('Invalid JSON for Step 4 options:', e)
+            contentUpdate.options = []
+          }
+        }
+
+        // Step 5 特有字段: stages
+        if (step.key === 5) {
+          const stagesText = values[`step${step.key}_stages`] || ''
+          contentUpdate.stages = stagesText
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+        }
+
+        // Step 6 特有字段: steps 和 completion_message
+        if (step.key === 6) {
+          const stepsText = values[`step${step.key}_steps`] || ''
+          contentUpdate.steps = stepsText
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+          contentUpdate.completion_message = values[`step${step.key}_completion_message`] || ''
+        }
+
+        // Step 7 特有字段: subtitle
+        if (step.key === 7) {
+          contentUpdate.subtitle = values[`step${step.key}_subtitle`] || ''
+        }
+
         updates[step.dbKey] = {
           ...existingData,
           visual: {
@@ -114,10 +210,7 @@ export const OnboardingThemeEditorFull = () => {
             background_url: values[`step${step.key}_background_url`] || '',
             background_audio_url: values[`step${step.key}_background_audio_url`] || ''
           },
-          content: {
-            ...existingData.content,
-            title: values[`step${step.key}_title`] || ''
-          }
+          content: contentUpdate
         }
       })
 
@@ -204,12 +297,12 @@ export const OnboardingThemeEditorFull = () => {
           </Form.Item>
 
           <Form.Item
-            label="Background Audio URL (Optional)"
+            label="Speech Audio URL (Optional)"
             name={`step${step.key}_background_audio_url`}
-            help="Audio will play on user interaction (to avoid browser autoplay restrictions)"
+            help="Speech/narration audio - plays once on user interaction"
           >
             <Input
-              placeholder="https://your-audio-url.com/audio.mp3"
+              placeholder="https://your-audio-url.com/speech.mp3"
               addonAfter={
                 <Upload
                   accept="audio/*"
@@ -221,7 +314,7 @@ export const OnboardingThemeEditorFull = () => {
                     loading={uploading}
                     size="small"
                   >
-                    Upload Audio
+                    Upload Speech
                   </Button>
                 </Upload>
               }
@@ -249,7 +342,7 @@ export const OnboardingThemeEditorFull = () => {
           {form.getFieldValue(`step${step.key}_background_audio_url`) && (
             <div style={{ marginBottom: 16 }}>
               <p style={{ fontWeight: 'bold', marginBottom: 8 }}>
-                <SoundOutlined /> Audio Preview:
+                <SoundOutlined /> Speech Audio Preview:
               </p>
               <audio
                 src={form.getFieldValue(`step${step.key}_background_audio_url`)}
@@ -267,6 +360,129 @@ export const OnboardingThemeEditorFull = () => {
           >
             <Input placeholder={`Step ${step.key} Title`} />
           </Form.Item>
+
+          {/* Step 1 特有字段: Lines */}
+          {step.key === 1 && (
+            <Form.Item
+              label="Lines"
+              name={`step${step.key}_lines`}
+              help="Text lines to display (one per line)"
+            >
+              <TextArea
+                rows={4}
+                placeholder="> WELCOME.&#10;> BOOTING SYSTEM...&#10;> INITIALIZING...&#10;> IF YOU COULD HAVE A SECOND LIFE, WHO WOULD YOU BE?"
+              />
+            </Form.Item>
+          )}
+
+          {/* Step 2 特有字段: Greeting 和 Messages */}
+          {step.key === 2 && (
+            <>
+              <Form.Item
+                label="Greeting"
+                name={`step${step.key}_greeting`}
+                help="Initial greeting message for the assistant"
+              >
+                <Input placeholder="> I AM YOUR GUIDE IN THIS REALM." />
+              </Form.Item>
+
+              <Form.Item
+                label="Messages"
+                name={`step${step.key}_messages`}
+                help="Array of messages (one per line)"
+              >
+                <TextArea
+                  rows={4}
+                  placeholder="> I WILL HELP YOU DISCOVER YOUR TRUE SELF.&#10;> ARE YOU READY TO BEGIN THIS JOURNEY?"
+                />
+              </Form.Item>
+            </>
+          )}
+
+          {/* Step 4 特有字段: Question 和 Options */}
+          {step.key === 4 && (
+            <>
+              <Form.Item
+                label="Question"
+                name={`step${step.key}_question`}
+                help="Main question to ask the user"
+              >
+                <Input placeholder="WHAT DO YOU WANT?" />
+              </Form.Item>
+
+              <Form.Item
+                label="Options (JSON)"
+                name={`step${step.key}_options`}
+                help="Array of choice options in JSON format"
+              >
+                <TextArea
+                  rows={10}
+                  placeholder={`[
+  {
+    "id": "stay",
+    "label": "STAY AS MYSELF",
+    "subtitle": "Keep your identity, enhance yourself"
+  },
+  {
+    "id": "become",
+    "label": "BECOME SOMEONE ELSE",
+    "subtitle": "Transform into a new persona"
+  }
+]`}
+                  style={{ fontFamily: 'monospace' }}
+                />
+              </Form.Item>
+            </>
+          )}
+
+          {/* Step 5 特有字段: Stages */}
+          {step.key === 5 && (
+            <Form.Item
+              label="Generation Stages"
+              name={`step${step.key}_stages`}
+              help="AI generation progress stages (one per line)"
+            >
+              <TextArea
+                rows={4}
+                placeholder="ANALYZING INPUT...&#10;PROCESSING IMAGE...&#10;CREATING PERSONA...&#10;FINALIZING..."
+              />
+            </Form.Item>
+          )}
+
+          {/* Step 6 特有字段: Steps 和 Completion Message */}
+          {step.key === 6 && (
+            <>
+              <Form.Item
+                label="Finalization Steps"
+                name={`step${step.key}_steps`}
+                help="Progress steps to display (one per line)"
+              >
+                <TextArea
+                  rows={3}
+                  placeholder="Saving profile...&#10;Setting up world...&#10;Preparing experience..."
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Completion Message"
+                name={`step${step.key}_completion_message`}
+                help="Message shown when finalization is complete"
+              >
+                <Input placeholder="YOUR SECOND LIFE AWAITS" />
+              </Form.Item>
+            </>
+          )}
+
+          {/* Step 7 特有字段: Subtitle */}
+          {step.key === 7 && (
+            <Form.Item
+              label="Subtitle"
+              name={`step${step.key}_subtitle`}
+              help="Subtitle text (e.g., instructions to proceed)"
+            >
+              <Input placeholder="CLICK ANYWHERE TO ENTER" />
+            </Form.Item>
+          )}
         </Card>
       </TabPane>
     )

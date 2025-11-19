@@ -1,1 +1,0 @@
-Icon files needed for PWA manifest

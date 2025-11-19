@@ -11,40 +11,46 @@ export const onboardingService = {
    */
   async getActiveConfig() {
     try {
+      const startTime = performance.now()
       console.log('[onboardingService] Fetching active config and theme...')
 
-      // 1. 获取配置
-      const { data: config, error: configError } = await supabase
-        .from('onboarding_configs')
-        .select('*')
-        .eq('is_active', true)
-        .single()
+      // 并行查询配置和主题（减少50%等待时间）
+      const [configResult, themeResult] = await Promise.all([
+        supabase
+          .from('onboarding_configs')
+          .select('*')
+          .eq('is_active', true)
+          .single(),
+        supabase
+          .from('onboarding_theme')
+          .select('*')
+          .single()
+      ])
 
-      if (configError) {
-        console.error('[onboardingService] Error fetching config:', configError)
-        throw configError
+      // 检查配置错误
+      if (configResult.error) {
+        console.error('[onboardingService] Error fetching config:', configResult.error)
+        throw configResult.error
       }
 
-      if (!config) {
+      if (!configResult.data) {
         throw new Error('No active onboarding configuration found')
       }
 
-      // 2. 获取主题（目前只有一个默认主题）
-      const { data: theme, error: themeError } = await supabase
-        .from('onboarding_theme')
-        .select('*')
-        .single()
-
-      if (themeError) {
-        console.error('[onboardingService] Error fetching theme:', themeError)
-        throw themeError
+      // 检查主题错误
+      if (themeResult.error) {
+        console.error('[onboardingService] Error fetching theme:', themeResult.error)
+        throw themeResult.error
       }
 
-      if (!theme) {
+      if (!themeResult.data) {
         throw new Error('No onboarding theme found')
       }
 
-      // 3. 合并配置和主题
+      const config = configResult.data
+      const theme = themeResult.data
+
+      // 合并配置和主题
       const mergedConfig = {
         ...config,
         global_styles: theme.global_styles,
@@ -59,7 +65,8 @@ export const onboardingService = {
         theme_name: theme.theme_name
       }
 
-      console.log('[onboardingService] Config loaded:', config.config_name, 'Theme:', theme.theme_name)
+      const loadTime = Math.round(performance.now() - startTime)
+      console.log(`[onboardingService] Config loaded in ${loadTime}ms:`, config.config_name, 'Theme:', theme.theme_name)
       return mergedConfig
     } catch (error) {
       console.error('[onboardingService] Failed to get active config:', error)

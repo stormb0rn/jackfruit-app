@@ -32,19 +32,47 @@ import '../styles/onboarding.css'
 export const Step4Choice = ({ config, globalStyles, onComplete }) => {
   const [selectedOption, setSelectedOption] = useState(null)
   const [hoveredOption, setHoveredOption] = useState(null)
+  const [audioPlaying, setAudioPlaying] = useState(false)
+  const [glitching, setGlitching] = useState(false)
+
+  // 播放背景音频
+  const playBackgroundAudio = () => {
+    if (config.visual?.background_audio_url && !audioPlaying) {
+      const audio = document.getElementById('step4-background-audio')
+      if (audio) {
+        audio.play().catch(err => {
+          console.log('[Step4Choice] Audio autoplay prevented:', err.message)
+        })
+        setAudioPlaying(true)
+      }
+    }
+  }
 
   const handleSelect = (optionId) => {
     setSelectedOption(optionId)
-    // 短暂延迟后自动继续
+    setGlitching(true) // 触发故障效果
+    playBackgroundAudio() // 选择选项时播放音频
+
+    // 故障动画持续 1 秒后继续
     setTimeout(() => {
+      setGlitching(false)
       console.log('[Step4Choice] User selected:', optionId)
       onComplete({ choice: optionId })
-    }, 500)
+    }, 1000)
   }
 
   return (
     <div className="onboarding-step step-4-choice">
-      <div className="content-layer">
+      {/* Speech 音频（单次播放） */}
+      {config.visual?.background_audio_url && (
+        <audio
+          id="step4-background-audio"
+          src={config.visual.background_audio_url}
+          style={{ display: 'none' }}
+        />
+      )}
+
+      <div className={`content-layer ${glitching ? 'glitch-active' : ''}`}>
         {/* 问题标题 */}
         {config.content?.question && (
           <h1

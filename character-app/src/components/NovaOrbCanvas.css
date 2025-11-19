@@ -1,0 +1,69 @@
+/* NOVA ORB CANVAS - Lo-Fi 像素化可视化效果 */
+
+.nova-orb-container {
+  position: relative;
+  overflow: hidden;
+  background: transparent;  /* 透明背景，重叠在画面上 */
+  pointer-events: none;      /* 不阻挡下层元素的交互 */
+}
+
+/* Canvas 渲染层：强制像素化 */
+.nova-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  /* 强制像素化渲染（关键属性） */
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges; /* Firefox */
+  image-rendering: crisp-edges;
+  opacity: 0.9;
+}
+
+/* === CRT 滤镜层 === */
+
+/* 扫描线纹理 */
+.nova-scanlines {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: linear-gradient(to bottom, rgba(18,16,16,0) 50%, rgba(0,0,0,0.4) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+/* RGB 像素网格 */
+.nova-pixel-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background-image: radial-gradient(rgba(0,0,0,0.3) 1px, transparent 1px);
+  background-size: 4px 4px;
+  pointer-events: none;
+}
+
+/* 屏幕光晕与暗角 */
+.nova-screen-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: radial-gradient(circle, rgba(64,160,255,0.05) 0%, rgba(0,0,0,0.6) 90%);
+  pointer-events: none;
+  box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+}
+
+/* 淡入动画 */
+.nova-orb-container {
+  animation: novaFadeIn 0.8s ease-out;
+}
+
+@keyframes novaFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -27,8 +27,12 @@ import '../styles/onboarding.css'
 export const Step2Guidance = ({ config, globalStyles, onComplete }) => {
   const [messagesVisible, setMessagesVisible] = useState([])
   const [showButton, setShowButton] = useState(false)
+  const [audioPlaying, setAudioPlaying] = useState(false)
 
   useEffect(() => {
+    console.log('[Step2Guidance] Config received:', config)
+    console.log('[Step2Guidance] GlobalStyles received:', globalStyles)
+
     // 重置状态
     setMessagesVisible([])
     setShowButton(false)
@@ -37,6 +41,8 @@ export const Step2Guidance = ({ config, globalStyles, onComplete }) => {
     const greeting = config.content?.greeting
     const messages = config.content?.messages || []
     const allMessages = greeting ? [greeting, ...messages] : messages
+
+    console.log('[Step2Guidance] All messages to display:', allMessages)
 
     const timers = []
     let delay = 500 // 初始延迟
@@ -64,13 +70,36 @@ export const Step2Guidance = ({ config, globalStyles, onComplete }) => {
     }
   }, [config.content])
 
+  // 播放背景音频
+  const playBackgroundAudio = () => {
+    if (config.visual?.background_audio_url && !audioPlaying) {
+      const audio = document.getElementById('step2-background-audio')
+      if (audio) {
+        audio.play().catch(err => {
+          console.log('[Step2Guidance] Audio autoplay prevented:', err.message)
+        })
+        setAudioPlaying(true)
+      }
+    }
+  }
+
   const handleContinue = () => {
     console.log('[Step2Guidance] User clicked continue')
+    playBackgroundAudio() // 点击按钮时播放音频
     onComplete({})
   }
 
   return (
     <div className="onboarding-step step-2-guidance">
+      {/* Speech 音频（单次播放） */}
+      {config.visual?.background_audio_url && (
+        <audio
+          id="step2-background-audio"
+          src={config.visual.background_audio_url}
+          style={{ display: 'none' }}
+        />
+      )}
+
       {/* 背景层 */}
       {config.visual?.background_type === 'video' && config.visual?.background_url && (
         <div className="background-layer">

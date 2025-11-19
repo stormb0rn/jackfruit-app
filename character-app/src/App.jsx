@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { OnboardingEngine } from './pages/Onboarding'
 import { CharacterList } from './pages/CharacterList'
 import { CharacterView } from './pages/CharacterView'
+import VoiceChat from './pages/VoiceChat'
 
 function App() {
   return (
@@ -15,6 +16,10 @@ function App() {
 
         {/* 角色列表（移到 /characters） */}
         <Route path="/characters" element={<CharacterList />} />
+
+        {/* 语音聊天页面 */}
+        <Route path="/voice-chat" element={<VoiceChat />} />
+        <Route path="/voice-chat/:characterId" element={<VoiceChat />} />
       </Routes>
     </BrowserRouter>
   )

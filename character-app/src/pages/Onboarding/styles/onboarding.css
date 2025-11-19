@@ -80,15 +80,12 @@
 .terminal-line {
   font-size: clamp(18px, 4vw, 24px);
   margin: 12px 0;
-  opacity: 0;
-  animation: fadeIn 0.5s ease-out forwards;
 }
 
 .typewriter {
-  overflow: hidden;
   border-right: 2px solid;
-  white-space: nowrap;
-  animation: typing 0.8s steps(40) forwards, blink 0.75s step-end infinite;
+  opacity: 0;
+  animation: fadeIn 0.5s ease-out forwards, blink 0.75s step-end infinite;
 }
 
 @keyframes typing {
@@ -208,10 +205,76 @@
 
 .onboarding-loading {
   color: #00FF41;
+  position: relative;
 }
 
 .onboarding-error {
   color: #FF0000;
+}
+
+/* Loading Screen 增强样式 */
+.loading-content {
+  text-align: center;
+  z-index: 10;
+  position: relative;
+}
+
+.loading-messages {
+  margin-bottom: 32px;
+}
+
+.loading-message {
+  font-size: 20px;
+  margin-bottom: 12px;
+  font-family: 'VT323', monospace;
+  color: #00FF41;
+  text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+  transition: opacity 0.3s ease;
+}
+
+.loading-message.visible {
+  opacity: 1;
+}
+
+/* 进度点动画 */
+.loading-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.loading-dots .dot {
+  width: 12px;
+  height: 12px;
+  background: #00FF41;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.loading-dots .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.loading-dots .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-dots .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
 }
 
 /* ========================================
@@ -250,4 +313,331 @@
 @keyframes scanline {
   0% { background-position: 0 0; }
   100% { background-position: 0 100%; }
+}
+
+/* ========================================
+   故障艺术效果 (Glitch Effect)
+   ======================================== */
+.glitch-active {
+  animation: glitch-anim 2s infinite linear alternate-reverse;
+  filter: hue-rotate(90deg) invert(1);
+}
+
+@keyframes glitch-anim {
+  0% {
+    clip-path: inset(20% 0 80% 0);
+    transform: translate(-2px, 2px);
+  }
+  20% {
+    clip-path: inset(60% 0 10% 0);
+    transform: translate(2px, -2px);
+  }
+  40% {
+    clip-path: inset(40% 0 40% 0);
+    transform: translate(-2px, 2px);
+  }
+  60% {
+    clip-path: inset(80% 0 5% 0);
+    transform: translate(2px, -2px);
+  }
+  80% {
+    clip-path: inset(10% 0 70% 0);
+    transform: translate(-2px, 2px);
+  }
+  100% {
+    clip-path: inset(30% 0 50% 0);
+    transform: translate(2px, -2px);
+  }
+}
+
+/* ========================================
+   摄像头取景框 (Camera Viewfinder)
+   ======================================== */
+.camera-viewfinder {
+  position: absolute;
+  top: 10%;
+  left: 5%;
+  width: 90%;
+  height: 60%;
+  border: 2px solid white;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* 取景框四个角落 */
+.viewfinder-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: white;
+  border-style: solid;
+}
+
+.viewfinder-corner-tl {
+  top: -2px;
+  left: -2px;
+  border-width: 4px 0 0 4px;
+}
+
+.viewfinder-corner-tr {
+  top: -2px;
+  right: -2px;
+  border-width: 4px 4px 0 0;
+}
+
+.viewfinder-corner-bl {
+  bottom: -2px;
+  left: -2px;
+  border-width: 0 0 4px 4px;
+}
+
+.viewfinder-corner-br {
+  bottom: -2px;
+  right: -2px;
+  border-width: 0 4px 4px 0;
+}
+
+/* ========================================
+   HUD 科幻界面 (HUD Interface)
+   ======================================== */
+.hud-text {
+  position: absolute;
+  color: white;
+  font-family: 'VT323', monospace;
+  font-size: 1rem;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px 12px;
+  z-index: 12;
+  text-transform: uppercase;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.hud-face-scan {
+  top: 50%;
+  left: 10%;
+  border: 1px solid cyan;
+  color: cyan;
+  padding: 10px;
+  transform: translateY(-50%);
+}
+
+/* 处理中文本 */
+.processing-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-family: 'VT323', monospace;
+  font-size: 2rem;
+  background: black;
+  padding: 16px 24px;
+  z-index: 20;
+  text-transform: uppercase;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ========================================
+   成功闪白效果 (Success Flash)
+   ======================================== */
+.success-flash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: white;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.success-flash.active {
+  opacity: 0.8;
+}
+
+/* ========================================
+   HUD 网格背景 (HUD Grid)
+   ======================================== */
+.hud-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 50px 50px;
+  z-index: 10;
+  pointer-events: none;
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* ========================================
+   Step 4: AI Dialogue (AI 对话流程)
+   ======================================== */
+
+/* AI 问题显示区域 */
+.ai-question {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  position: relative;
+}
+
+/* 对话选项容器 */
+.dialogue-options {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* 单个对话选项 */
+.dialogue-option {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.dialogue-option:hover:not(.selected) {
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  transform: translateX(5px);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+}
+
+.dialogue-option.selected {
+  animation: pulse 0.5s ease-in-out;
+}
+
+/* 历史对话记录 */
+.conversation-history {
+  position: absolute;
+  top: 60px;
+  left: 20px;
+  right: 20px;
+  max-height: 150px;
+  overflow-y: auto;
+  opacity: 0.4;
+  font-family: 'VT323', monospace;
+  font-size: 14px;
+  color: #FFFFFF;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.history-item {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-question {
+  color: #00FF41;
+  margin-bottom: 4px;
+}
+
+.history-answer {
+  color: #FFFFFF;
+  padding-left: 10px;
+}
+
+/* HUD 装饰角落 */
+.hud-corners {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.hud-corner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-color: rgba(0, 255, 65, 0.3);
+  border-style: solid;
+}
+
+.hud-corner-tl {
+  top: 20px;
+  left: 20px;
+  border-width: 2px 0 0 2px;
+}
+
+.hud-corner-tr {
+  top: 20px;
+  right: 20px;
+  border-width: 2px 2px 0 0;
+}
+
+.hud-corner-bl {
+  bottom: 20px;
+  left: 20px;
+  border-width: 0 0 2px 2px;
+}
+
+.hud-corner-br {
+  bottom: 20px;
+  right: 20px;
+  border-width: 0 2px 2px 0;
+}
+
+/* AI 对话专用布局 */
+.step-4-ai-dialogue .content-layer {
+  justify-content: center;
+  padding-top: 100px;
+}
+
+/* ========================================
+   步骤指示器（左下角调试信息）
+   ======================================== */
+.step-indicator {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(0, 255, 65, 0.5);
+  padding: 8px 12px;
+  font-family: 'VT323', monospace;
+  font-size: 14px;
+  color: #00FF41;
+  z-index: 9999;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+  pointer-events: none;
+}
+
+.step-indicator .step-number {
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.step-indicator .step-name {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* ========================================
+   相册按钮（右下角）
+   ======================================== */
+.gallery-btn:hover {
+  background: rgba(0, 255, 65, 0.1) !important;
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+  transform: scale(1.05);
 }
